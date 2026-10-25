@@ -97,6 +97,44 @@ Plan، Subscription، Order، Payment (با تاریخچه وضعیت)، Webhook
 
 | فاز | وضعیت |
 |---|---|
-| A | انجام‌شده — build، `docker compose config`، اجرای همه سرویس‌ها (healthy)، migration و health check تست شد |
-| B | شروع‌نشده |
-| C–F | شروع‌نشده |
+| A | ✅ انجام‌شده و تست‌شده |
+| B | ✅ انجام‌شده و تست‌شده |
+| C | شروع‌نشده |
+| D | شروع‌نشده (فقط بررسی مستندات بله، در `BALE_INTEGRATION.md`) |
+| E | شروع‌نشده |
+| F | شروع‌نشده |
+
+## نتایج تست (۲۰۲۶-۱۰-۲۵)
+
+همه دستورها در محیط توسعه واقعاً اجرا شدند:
+
+| دستور | نتیجه |
+|---|---|
+| `npm run build` | موفق (همه پکیج‌ها و اپ‌ها، Next.js production build) |
+| `npm run typecheck` | بدون خطا (TypeScript strict) |
+| `npm test` | ۱۰ تست unit در `packages/shared` + ۶ تست unit در API — همه موفق |
+| `npm run test:integration` | ۲۹ تست در ۵ فایل (احراز هویت، جداسازی سازمان‌ها، پنل ادمین، امنیت، health) — همه موفق |
+| `npm run test:e2e` روی `next start` + API محلی | ۹ تست — همه موفق |
+| `npm run test:e2e` روی Docker Compose (nginx، پورت 8080) با مدیر ساخته‌شده از CLI | ۱۰ تست — همه موفق |
+| `docker compose config --quiet` | موفق |
+| `docker compose up -d` | ۷ سرویس healthy (postgres, redis, api, worker, scheduler, web, nginx) و migrate با کد ۰ |
+| `GET /api/v1/health/ready` | ۲۰۰، دیتابیس و Redis «up» |
+| `infra/scripts/backup.sh` + `restore.sh` | بکاپ رمزگذاری‌شده (GPG AES256) ساخته و در دیتابیس جدید بازیابی شد؛ تعداد ردیف‌های users/organizations/audit_logs/_prisma_migrations با دیتابیس اصلی یکسان بود |
+| `npm audit` | ۰ آسیب‌پذیری (پس از override نسخه‌های وصله‌شده postcss، multer و js-yaml) |
+
+### پوشش تست‌ها نسبت به خواسته‌ها
+
+| خواسته | فاز | وضعیت |
+|---|---|---|
+| ثبت‌نام و ورود، دسترسی سازمان | B | ✅ integration + E2E |
+| جلوگیری از دسترسی به سازمان دیگر، پنل ادمین، Rate Limit، ورودی مخرب، افشای اسرار در API و لاگ | B | ✅ integration/unit |
+| E2E ثبت‌نام، ورود، ایجاد فضای کاری | B | ✅ |
+| اعتبارسنجی پلن/اشتراک/لایسنس، انتقال وضعیت کمپین، سیاست Retry، نرمال‌سازی خطای ارائه‌دهنده | C–E | ⏳ با پیاده‌سازی همان فازها |
+| ایجاد مخاطب/کمپین، توقف کمپین، وب‌هوک تکراری، اشتراک با پرداخت تأییدنشده | C–E | ⏳ |
+| E2E ورود مخاطب، کمپین آزمایشی، گزارش، پلن و اشتراک | C–E | ⏳ |
+
+### کارهای باقی‌مانده
+
+- فاز C تا F طبق بخش‌های بالا.
+- RLS، احراز هویت دومرحله‌ای برای مدیران، CSP مبتنی بر nonce (جزئیات در `SECURITY.md`).
+- اتصال واقعی بله در محیطی با دسترسی به `tapi.bale.ai` تأیید شود.

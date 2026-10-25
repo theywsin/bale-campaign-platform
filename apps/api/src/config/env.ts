@@ -16,6 +16,8 @@ export const apiEnvSchema = baseEnvSchema
     LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(100).default(5),
     LOGIN_WINDOW_SECONDS: z.coerce.number().int().min(10).max(86_400).default(900),
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(100_000).default(300),
+    /** Per-IP limit for register / password reset / e-mail verification endpoints. */
+    AUTH_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(100_000).default(10),
     SWAGGER_ENABLED: booleanFlag(false),
     /** SMTP connection string, e.g. smtps://user:pass@mail.example.com:465. Empty disables e-mail. */
     SMTP_URL: z.string().optional().transform((v) => (v ? v : undefined)),
@@ -34,3 +36,8 @@ export function loadApiEnv(source: NodeJS.ProcessEnv = process.env): ApiEnv {
 }
 
 export const API_ENV = Symbol("API_ENV");
+
+/** Origins allowed for CORS and for the CSRF Origin check. */
+export function allowedOrigins(env: ApiEnv): string[] {
+  return [new URL(env.APP_URL).origin, ...env.CORS_ORIGINS.map((o) => new URL(o).origin)];
+}

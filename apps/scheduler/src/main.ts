@@ -3,6 +3,10 @@ import { onShutdown, startHealthServer } from "@bcp/config";
 import { Redis } from "ioredis";
 import pino from "pino";
 import { loadSchedulerEnv } from "./env";
+import { purgeExpiredAuthData } from "./maintenance";
+
+const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000;
+const LOCK_KEY = "scheduler:lock:maintenance";
 
 async function main(): Promise<void> {
   const env = loadSchedulerEnv();
@@ -21,9 +25,25 @@ async function main(): Promise<void> {
     },
   });
 
+  // A Redis lock keeps maintenance single-run even if several schedulers are started by mistake.
+  const runMaintenance = async () => {
+    const locked = await redis.set(LOCK_KEY, String(process.pid), "PX", MAINTENANCE_INTERVAL_MS - 60_000, "NX");
+    if (locked !== "OK") return;
+    try {
+      const removed = await purgeExpiredAuthData(prisma);
+      log.info({ removed }, "maintenance: purged expired auth data");
+    } catch (err) {
+      log.error({ err: err instanceof Error ? err.message : String(err) }, "maintenance failed");
+    }
+  };
+  const timer = setInterval(() => void runMaintenance(), MAINTENANCE_INTERVAL_MS);
+  void runMaintenance();
+
+  // Campaign scheduling and the transactional outbox relay are added in phase C.
   log.info("scheduler started");
 
   onShutdown(async () => {
+    clearInterval(timer);
     health.close();
     await prisma.$disconnect();
     redis.disconnect();

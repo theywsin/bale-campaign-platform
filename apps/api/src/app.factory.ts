@@ -6,11 +6,7 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { Logger } from "nestjs-pino";
 import { AppModule } from "./app.module";
-import type { ApiEnv } from "./config/env";
-
-export function allowedOrigins(env: ApiEnv): string[] {
-  return [new URL(env.APP_URL).origin, ...env.CORS_ORIGINS.map((o) => new URL(o).origin)];
-}
+import { allowedOrigins, type ApiEnv } from "./config/env";
 
 /** Creates and configures the Nest application. Shared by main.ts and tests. */
 export async function createApp(env: ApiEnv): Promise<INestApplication> {

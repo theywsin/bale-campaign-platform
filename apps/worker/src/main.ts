@@ -3,6 +3,7 @@ import { onShutdown, startHealthServer } from "@bcp/config";
 import { Redis } from "ioredis";
 import pino from "pino";
 import { loadWorkerEnv } from "./env";
+import { startEmailWorker } from "./email.processor";
 
 async function main(): Promise<void> {
   const env = loadWorkerEnv();
@@ -22,10 +23,17 @@ async function main(): Promise<void> {
     },
   });
 
-  log.info({ concurrency: env.WORKER_CONCURRENCY }, "worker started");
+  const emailWorker = env.SMTP_URL
+    ? startEmailWorker({ connection: redis, smtpUrl: env.SMTP_URL, from: env.MAIL_FROM, log })
+    : null;
+  if (!emailWorker) log.warn("SMTP_URL not set: e-mail queue is not processed");
+
+  // Campaign processors are added in phase C.
+  log.info({ concurrency: env.WORKER_CONCURRENCY, email: Boolean(emailWorker) }, "worker started");
 
   onShutdown(async () => {
     health.close();
+    await emailWorker?.close();
     await prisma.$disconnect();
     redis.disconnect();
   }, (m) => log.info(m));

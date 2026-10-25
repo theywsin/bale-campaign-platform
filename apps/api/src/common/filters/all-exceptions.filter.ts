@@ -26,7 +26,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const res = ctx.getResponse<Response>();
-    const req = ctx.getRequest<Request & { id?: string }>();
+    const req = ctx.getRequest<Request>();
     const requestId = typeof req.id === "string" ? req.id : undefined;
 
     let body: ApiErrorBody;

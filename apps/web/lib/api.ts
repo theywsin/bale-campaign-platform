@@ -21,6 +21,17 @@ function readCookie(name: string): string | undefined {
   return match ? decodeURIComponent(match.slice(name.length + 1)) : undefined;
 }
 
+/** Obtains the CSRF cookie from the API when the browser does not have it yet. */
+async function ensureCsrf(): Promise<string | undefined> {
+  try {
+    const res = await fetch("/api/v1/auth/csrf", { credentials: "same-origin", cache: "no-store" });
+    const body = (await res.json()) as { csrfToken?: string };
+    return body.csrfToken;
+  } catch {
+    return undefined;
+  }
+}
+
 type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 /**
@@ -32,7 +43,7 @@ export async function api<T>(path: string, options: { method?: Method; body?: un
   const headers: Record<string, string> = { Accept: "application/json" };
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
   if (method !== "GET") {
-    const csrf = readCookie(CSRF_COOKIE);
+    const csrf = readCookie(CSRF_COOKIE) ?? (await ensureCsrf());
     if (csrf) headers[CSRF_HEADER] = csrf;
   }
 

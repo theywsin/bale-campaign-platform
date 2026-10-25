@@ -9,8 +9,6 @@ export class RedisService implements OnModuleDestroy {
   constructor(@Inject(API_ENV) env: ApiEnv) {
     this.client = new Redis(env.REDIS_URL, {
       maxRetriesPerRequest: 2,
-      enableOfflineQueue: false,
-      lazyConnect: false,
     });
     // Errors are surfaced through health checks; avoid unhandled 'error' events.
     this.client.on("error", () => undefined);
