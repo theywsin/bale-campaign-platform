@@ -17,6 +17,8 @@ COPY package.json package-lock.json .npmrc ./
 COPY packages/config/package.json packages/config/
 COPY packages/shared/package.json packages/shared/
 COPY packages/database/package.json packages/database/
+COPY packages/messaging/package.json packages/messaging/
+COPY packages/engine/package.json packages/engine/
 COPY apps/api/package.json apps/api/
 COPY apps/worker/package.json apps/worker/
 COPY apps/scheduler/package.json apps/scheduler/
@@ -51,6 +53,10 @@ COPY --from=build --chown=node:node /app/packages/shared/package.json /app/packa
 COPY --from=build --chown=node:node /app/packages/shared/dist /app/packages/shared/dist
 COPY --from=build --chown=node:node /app/packages/database/package.json /app/packages/database/
 COPY --from=build --chown=node:node /app/packages/database/dist /app/packages/database/dist
+COPY --from=build --chown=node:node /app/packages/messaging/package.json /app/packages/messaging/
+COPY --from=build --chown=node:node /app/packages/messaging/dist /app/packages/messaging/dist
+COPY --from=build --chown=node:node /app/packages/engine/package.json /app/packages/engine/
+COPY --from=build --chown=node:node /app/packages/engine/dist /app/packages/engine/dist
 USER node
 
 FROM node-runtime AS api

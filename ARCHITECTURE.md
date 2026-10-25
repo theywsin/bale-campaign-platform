@@ -68,4 +68,32 @@
 
 - **worker**: صف `email` را با nodemailer پردازش می‌کند (retry نمایی، ۵ تلاش). بدون `SMTP_URL` صف پردازش نمی‌شود و API هم چیزی در صف نمی‌گذارد.
 - **scheduler**: هر ساعت نشست‌ها، توکن‌ها و دعوت‌نامه‌های منقضی را حذف می‌کند (با قفل Redis برای جلوگیری از اجرای هم‌زمان).
-- پردازش کمپین و Transactional Outbox در فاز C به این دو سرویس اضافه می‌شود.
+- منطق ارسال در `packages/engine` است تا worker، scheduler و تست‌های integration همان کد را اجرا کنند.
+
+### جریان ارسال کمپین (فاز C)
+
+```
+API: start ──(یک تراکنش)──► campaigns.status=QUEUED + campaign_recipients + outbox_events
+scheduler (هر ۱ ثانیه): outbox_events FOR UPDATE SKIP LOCKED ──► BullMQ «campaigns» (jobId = event id) ──► PUBLISHED
+worker: قفل Redis کمپین ──► QUEUED→RUNNING ──► حلقه:
+          claim دسته‌ای گیرندگان (SKIP LOCKED) ──► کنترل دوباره عدم ارسال/انصراف
+          ──► بررسی وضعیت کمپین پیش از هر پیام (توقف/لغو) ──► نوبت نرخ حساب (Redis، بین همه workerها)
+          ──► ثبت message_attempt ──► provider.sendText ──► ACCEPTED | PENDING (retry) | FAILED | UNKNOWN
+        ──► بدون کار سررسیده: COMPLETED یا job تأخیری برای retry بعدی
+scheduler (هر ۱۵ ثانیه): SCHEDULED سررسیده ⇒ QUEUED + outbox
+scheduler (هر دقیقه): بازیابی PROCESSINGهای گیرکرده و kick کمپین‌هایی که job آن‌ها گم شده
+```
+
+تحویل «حداقل یک بار» (at-least-once) است: هر job ممکن است تکرار شود، اما قفل کمپین، claim اتمیک و
+ثبت تلاش پیش از ارسال باعث می‌شوند تکرار job به ارسال تکراری پیام نینجامد. اگر worker وسط ارسال
+از کار بیفتد، تلاش نیمه‌تمام به `UNKNOWN` تبدیل می‌شود و **خودکار دوباره ارسال نمی‌شود**؛ گیرنده‌ای
+که هنوز تلاشی برایش شروع نشده بود به `PENDING` برمی‌گردد.
+
+| خطای ارائه‌دهنده | نوع | نتیجه |
+|---|---|---|
+| اتصال برقرار نشد | RETRYABLE | تلاش دوباره با backoff نمایی (۳۰ث، ۶۰ث، ۱۲۰ث؛ حداکثر ۴ تلاش) |
+| ۴۲۹ | RETRYABLE | تلاش دوباره، با رعایت `Retry-After` |
+| timeout پس از ارسال، ۵xx، خطای غیرمنتظره | UNKNOWN_OUTCOME | `UNKNOWN` بدون تلاش دوباره |
+| سایر ۴xx | PERMANENT | `FAILED` |
+
+وضعیت `DELIVERED` فقط با تأیید صریح تحویل از ارائه‌دهنده ثبت می‌شود؛ Mock و بله چنین تأییدی ندارند.

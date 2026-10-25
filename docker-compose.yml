@@ -10,6 +10,8 @@ x-node-env: &node-env
   APP_VERSION: ${APP_VERSION:-0.1.0}
   DATABASE_URL: postgresql://${POSTGRES_USER:-bcp}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-bcp}?schema=public
   REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+  # Test-only mock messaging provider; never enable on a real deployment.
+  MESSAGING_MOCK_ENABLED: ${MESSAGING_MOCK_ENABLED:-false}
 
 x-logging: &logging
   driver: json-file

@@ -26,6 +26,11 @@
 | کانتینرها | کاربر non-root، `read_only`، `cap_drop: ALL`، `no-new-privileges`، محدودیت منابع | — |
 | شبکه | PostgreSQL و Redis بدون پورت منتشرشده و در شبکه internal؛ Redis با رمز | `docker compose ps` |
 | اسرار | فقط از env؛ `.env` در `.gitignore`؛ اعتبارسنجی env مقادیر را در خطا چاپ نمی‌کند | `env.spec.ts` |
+| CSV Injection (فاز C) | در خروجی، سلول‌هایی که با `= + - @ TAB CR` شروع شوند با `'` خنثی می‌شوند (به‌جز عدد خالص) | `csv.spec.ts`, `contacts.int.ts` |
+| آپلود CSV (فاز C) | حافظه‌ای، حداکثر ۲ مگابایت، ۱ فایل، پسوند `.csv`، حداکثر ۱۰٬۰۰۰ سطر؛ فایل ذخیره نمی‌شود | `contacts.int.ts` |
+| جداسازی داده‌های فاز C | همه کوئری‌ها با `organization_id`؛ ارجاع به حساب/فهرست/مخاطب سازمان دیگر رد می‌شود | `contacts.int.ts`, `campaigns.int.ts` |
+| حساب آزمایشی | `MOCK` فقط با `MESSAGING_MOCK_ENABLED=true` (پیش‌فرض false و در compose خاموش)؛ در UI با برچسب «آزمایشی» | `campaigns.int.ts` |
+| ارسال تکراری | UNKNOWN هرگز خودکار تکرار نمی‌شود؛ عدم ارسال/انصراف پیش از هر ارسال دوباره بررسی می‌شود | `campaigns.int.ts` |
 
 ## نکات طراحی
 

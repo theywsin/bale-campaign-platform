@@ -64,11 +64,11 @@ model User {
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  sessions            Session[]
-  tokens              UserToken[]
-  memberships         OrganizationMember[]
-  invitationsSent     Invitation[]         @relation("InvitationInviter")
-  organizationsCreated Organization[]      @relation("OrganizationCreator")
+  sessions             Session[]
+  tokens               UserToken[]
+  memberships          OrganizationMember[]
+  invitationsSent      Invitation[]         @relation("InvitationInviter")
+  organizationsCreated Organization[]       @relation("OrganizationCreator")
 
   @@index([createdAt])
   @@index([platformRole])
@@ -144,10 +144,16 @@ model Organization {
   updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
   archivedAt  DateTime?          @map("archived_at") @db.Timestamptz(3)
 
-  createdBy   User?                @relation("OrganizationCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  members     OrganizationMember[]
-  invitations Invitation[]
-  auditLogs   AuditLog[]
+  createdBy         User?                @relation("OrganizationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  members           OrganizationMember[]
+  invitations       Invitation[]
+  auditLogs         AuditLog[]
+  contacts          Contact[]
+  contactLists      ContactList[]
+  suppressions      SuppressionEntry[]
+  contactImports    ContactImport[]
+  messagingAccounts MessagingAccount[]
+  campaigns         Campaign[]
 
   @@index([status, createdAt])
   @@map("organizations")
@@ -223,4 +229,286 @@ model AuditLog {
   @@index([category, createdAt(sort: Desc)])
   @@index([action])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Contacts
+// ---------------------------------------------------------------------------
+
+enum ContactStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// Whether the contact agreed to receive campaign messages.
+enum ConsentStatus {
+  UNKNOWN
+  OPTED_IN
+  OPTED_OUT
+}
+
+model Contact {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  firstName      String?       @map("first_name") @db.VarChar(100)
+  lastName       String?       @map("last_name") @db.VarChar(100)
+  /// E.164 (see normalizePhone in @bcp/shared).
+  phone          String?       @db.VarChar(20)
+  /// Chat id on Bale. A bot can only message chats that started it, so sending needs this.
+  baleChatId     String?       @map("bale_chat_id") @db.VarChar(64)
+  notes          String?       @db.VarChar(1000)
+  consent        ConsentStatus @default(UNKNOWN)
+  consentAt      DateTime?     @map("consent_at") @db.Timestamptz(3)
+  status         ContactStatus @default(ACTIVE)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  archivedAt     DateTime?     @map("archived_at") @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lists        ContactListMember[]
+  recipients   CampaignRecipient[]
+
+  @@unique([organizationId, phone])
+  @@unique([organizationId, baleChatId])
+  @@index([organizationId, status, createdAt(sort: Desc)])
+  @@map("contacts")
+}
+
+model ContactList {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String   @db.VarChar(100)
+  description    String?  @db.VarChar(500)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      ContactListMember[]
+  campaigns    Campaign[]
+
+  @@unique([organizationId, name])
+  @@map("contact_lists")
+}
+
+model ContactListMember {
+  listId    String   @map("list_id") @db.Uuid
+  contactId String   @map("contact_id") @db.Uuid
+  addedAt   DateTime @default(now()) @map("added_at") @db.Timestamptz(3)
+
+  list    ContactList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  contact Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@id([listId, contactId])
+  @@index([contactId])
+  @@map("contact_list_members")
+}
+
+enum SuppressionKind {
+  PHONE
+  BALE_CHAT_ID
+}
+
+/// Addresses that must never receive campaign messages from this organization.
+model SuppressionEntry {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  kind           SuppressionKind
+  value          String          @db.VarChar(64)
+  reason         String?         @db.VarChar(200)
+  createdById    String?         @map("created_by_id") @db.Uuid
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, kind, value])
+  @@map("suppression_entries")
+}
+
+/// Summary of one CSV import. `errors` keeps at most the first few hundred invalid rows (row number + reason, no full row data).
+model ContactImport {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  fileName       String   @map("file_name") @db.VarChar(255)
+  listId         String?  @map("list_id") @db.Uuid
+  totalRows      Int      @map("total_rows")
+  createdCount   Int      @map("created_count")
+  updatedCount   Int      @map("updated_count")
+  invalidCount   Int      @map("invalid_count")
+  errors         Json
+  createdById    String?  @map("created_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("contact_imports")
+}
+
+// ---------------------------------------------------------------------------
+// Messaging accounts
+// ---------------------------------------------------------------------------
+
+enum MessagingProviderType {
+  /// Test-only provider that never contacts a real service.
+  MOCK
+  BALE_BOT
+}
+
+enum MessagingAccountStatus {
+  ACTIVE
+  DISABLED
+}
+
+model MessagingAccount {
+  id                   String                 @id @default(uuid(7)) @db.Uuid
+  organizationId       String                 @map("organization_id") @db.Uuid
+  provider             MessagingProviderType
+  displayName          String                 @map("display_name") @db.VarChar(100)
+  status               MessagingAccountStatus @default(ACTIVE)
+  /// AES-256-GCM ciphertext of the provider credentials; the key lives outside the database. Never returned by the API.
+  credentialsEncrypted String?                @map("credentials_encrypted") @db.Text
+  rateLimitPerMinute   Int                    @default(20) @map("rate_limit_per_minute")
+  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaigns    Campaign[]
+
+  @@index([organizationId])
+  @@map("messaging_accounts")
+}
+
+// ---------------------------------------------------------------------------
+// Campaigns
+// ---------------------------------------------------------------------------
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  QUEUED
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum RecipientStatus {
+  PENDING
+  PROCESSING
+  /// The provider accepted the message. Not a delivery confirmation.
+  ACCEPTED
+  /// Only set from an explicit delivery confirmation by the provider.
+  DELIVERED
+  FAILED
+  /// The outcome of a send is not known (e.g. timeout). Never retried automatically.
+  UNKNOWN
+  SUPPRESSED
+}
+
+enum AttemptOutcome {
+  ACCEPTED
+  FAILED_RETRYABLE
+  FAILED_PERMANENT
+  UNKNOWN
+}
+
+model Campaign {
+  id                 String         @id @default(uuid(7)) @db.Uuid
+  organizationId     String         @map("organization_id") @db.Uuid
+  name               String         @db.VarChar(150)
+  messageText        String         @map("message_text") @db.VarChar(4000)
+  messagingAccountId String?        @map("messaging_account_id") @db.Uuid
+  /// Target list; null means every active contact.
+  listId             String?        @map("list_id") @db.Uuid
+  status             CampaignStatus @default(DRAFT)
+  scheduledAt        DateTime?      @map("scheduled_at") @db.Timestamptz(3)
+  startedAt          DateTime?      @map("started_at") @db.Timestamptz(3)
+  finishedAt         DateTime?      @map("finished_at") @db.Timestamptz(3)
+  failureReason      String?        @map("failure_reason") @db.VarChar(300)
+  createdById        String?        @map("created_by_id") @db.Uuid
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messagingAccount MessagingAccount?   @relation(fields: [messagingAccountId], references: [id], onDelete: SetNull)
+  list             ContactList?        @relation(fields: [listId], references: [id], onDelete: SetNull)
+  recipients       CampaignRecipient[]
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([status, scheduledAt])
+  @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id                String          @id @default(uuid(7)) @db.Uuid
+  campaignId        String          @map("campaign_id") @db.Uuid
+  organizationId    String          @map("organization_id") @db.Uuid
+  contactId         String?         @map("contact_id") @db.Uuid
+  /// Snapshot of the address at queue time.
+  chatId            String?         @map("chat_id") @db.VarChar(64)
+  status            RecipientStatus @default(PENDING)
+  attemptCount      Int             @default(0) @map("attempt_count")
+  nextAttemptAt     DateTime        @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  lockedAt          DateTime?       @map("locked_at") @db.Timestamptz(3)
+  providerMessageId String?         @map("provider_message_id") @db.VarChar(100)
+  lastErrorCode     String?         @map("last_error_code") @db.VarChar(50)
+  lastErrorMessage  String?         @map("last_error_message") @db.VarChar(300)
+  acceptedAt        DateTime?       @map("accepted_at") @db.Timestamptz(3)
+  deliveredAt       DateTime?       @map("delivered_at") @db.Timestamptz(3)
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  campaign Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact  Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  attempts MessageAttempt[]
+
+  @@unique([campaignId, contactId])
+  @@index([campaignId, status, nextAttemptAt])
+  @@index([status, lockedAt])
+  @@map("campaign_recipients")
+}
+
+/// One call to the provider. Created before the call so a crash mid-send is detectable (finishedAt stays null).
+model MessageAttempt {
+  id                String          @id @default(uuid(7)) @db.Uuid
+  recipientId       String          @map("recipient_id") @db.Uuid
+  attemptNo         Int             @map("attempt_no")
+  outcome           AttemptOutcome?
+  providerMessageId String?         @map("provider_message_id") @db.VarChar(100)
+  errorCode         String?         @map("error_code") @db.VarChar(50)
+  errorMessage      String?         @map("error_message") @db.VarChar(300)
+  startedAt         DateTime        @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt        DateTime?       @map("finished_at") @db.Timestamptz(3)
+
+  recipient CampaignRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([recipientId, attemptNo])
+  @@map("message_attempts")
+}
+
+// ---------------------------------------------------------------------------
+// Transactional outbox
+// ---------------------------------------------------------------------------
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+}
+
+/// Written in the same transaction as the state change; the scheduler relays it to BullMQ (at-least-once).
+model OutboxEvent {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  type        String       @db.VarChar(100)
+  payload     Json
+  status      OutboxStatus @default(PENDING)
+  attempts    Int          @default(0)
+  availableAt DateTime     @default(now()) @map("available_at") @db.Timestamptz(3)
+  publishedAt DateTime?    @map("published_at") @db.Timestamptz(3)
+  lastError   String?      @map("last_error") @db.VarChar(500)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([status, availableAt])
+  @@map("outbox_events")
 }

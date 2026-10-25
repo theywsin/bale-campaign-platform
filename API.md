@@ -53,6 +53,27 @@
 | DELETE | `/organizations/:orgId/members/:memberId` | عضو (خروج) یا `members:remove` | حذف عضو |
 | GET/POST | `/organizations/:orgId/invitations` | `members:invite` | فهرست / ایجاد دعوت |
 | DELETE | `/organizations/:orgId/invitations/:id` | `members:invite` | لغو دعوت |
+| GET | `/organizations/:orgId/contacts` | `contacts:read` | فهرست (`q`, `status`, `listId`, صفحه‌بندی) |
+| POST | `/organizations/:orgId/contacts` | `contacts:write` | ایجاد؛ موبایل یا شناسه چت لازم است؛ تکراری ۴۰۹ |
+| GET/PATCH/DELETE | `/organizations/:orgId/contacts/:id` | `contacts:read` / `contacts:write` | جزئیات / ویرایش / حذف دائمی |
+| PUT | `/organizations/:orgId/contacts/:id/archived` | `contacts:write` | `{archived: boolean}` |
+| POST | `/organizations/:orgId/contacts/import` | `contacts:write` | multipart (`file`, `listId?`)؛ حداکثر ۲ مگابایت و ۱۰٬۰۰۰ سطر؛ گزارش سطرهای نامعتبر |
+| GET | `/organizations/:orgId/contacts/imports` | `contacts:read` | ۲۰ ورود اخیر |
+| GET | `/organizations/:orgId/contacts/export` | `contacts:export` | CSV (UTF-8 با BOM)، با خنثی‌سازی فرمول |
+| GET/POST | `/organizations/:orgId/lists` | `contacts:read` / `contacts:write` | فهرست‌ها |
+| PATCH/DELETE | `/organizations/:orgId/lists/:id` | `contacts:write` | ویرایش / حذف (اگر در کمپین فعال نباشد) |
+| POST | `/organizations/:orgId/lists/:id/members` و `/members/remove` | `contacts:write` | `{contactIds: uuid[≤500]}` |
+| GET/POST | `/organizations/:orgId/suppressions` | `contacts:read` / `contacts:write` | فهرست عدم ارسال |
+| DELETE | `/organizations/:orgId/suppressions/:id` | `contacts:write` | حذف |
+| GET | `/organizations/:orgId/messaging-accounts` | `messaging-accounts:read` | `{mockEnabled, items}`؛ اعتبارنامه هرگز برنمی‌گردد |
+| POST | `/organizations/:orgId/messaging-accounts/mock` | `messaging-accounts:write` | حساب آزمایشی؛ فقط اگر `MESSAGING_MOCK_ENABLED=true` |
+| PUT | `/organizations/:orgId/messaging-accounts/:id/status` | `messaging-accounts:write` | فعال / غیرفعال |
+| DELETE | `/organizations/:orgId/messaging-accounts/:id` | `messaging-accounts:write` | اگر در کمپین فعال نباشد |
+| GET/POST | `/organizations/:orgId/campaigns` | `campaigns:read` / `campaigns:write` | فهرست با شمارش وضعیت‌ها / ایجاد پیش‌نویس |
+| GET/PATCH/DELETE | `/organizations/:orgId/campaigns/:id` | `campaigns:read` / `campaigns:write` | ویرایش و حذف فقط در `DRAFT` |
+| POST | `/organizations/:orgId/campaigns/:id/start` | `campaigns:send` | `{scheduledAt?}`؛ ثبت گیرندگان + outbox |
+| POST | `/organizations/:orgId/campaigns/:id/pause` \| `resume` \| `cancel` | `campaigns:send` | انتقال وضعیت؛ غیرمجاز ⇒ ۴۰۹ |
+| GET | `/organizations/:orgId/campaigns/:id/recipients` | `campaigns:read` | گزارش گیرندگان (`status`, صفحه‌بندی) |
 | GET | `/admin/stats` | `admin:dashboard` | آمار |
 | GET | `/admin/users` | `admin:users:read` | جست‌وجو و صفحه‌بندی (`q`, `page`, `pageSize≤100`) |
 | PATCH | `/admin/users/:id/status` | `admin:users:write` | تعلیق / فعال‌سازی |

@@ -79,3 +79,26 @@ export function errorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
   return "خطای غیرمنتظره رخ داد. لطفاً دوباره تلاش کنید.";
 }
+
+/** Multipart upload (CSV import). The browser sets the multipart boundary header. */
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const csrf = readCookie(CSRF_COOKIE) ?? (await ensureCsrf());
+  let res: Response;
+  try {
+    res = await fetch(`/api/v1${path}`, {
+      method: "POST",
+      headers: { Accept: "application/json", ...(csrf ? { [CSRF_HEADER]: csrf } : {}) },
+      body: form,
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError(0, "NETWORK_ERROR", "ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی کنید.");
+  }
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const body = (data ?? {}) as Partial<ApiErrorBody>;
+    throw new ApiError(res.status, body.code ?? "UNKNOWN", body.message ?? "خطای غیرمنتظره رخ داد. لطفاً دوباره تلاش کنید.", body.fieldErrors);
+  }
+  return data as T;
+}

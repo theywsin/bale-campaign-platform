@@ -4,6 +4,7 @@ import { Redis } from "ioredis";
 import pino from "pino";
 import { loadWorkerEnv } from "./env";
 import { startEmailWorker } from "./email.processor";
+import { startCampaignWorker } from "./campaign.processor";
 
 async function main(): Promise<void> {
   const env = loadWorkerEnv();
@@ -28,12 +29,19 @@ async function main(): Promise<void> {
     : null;
   if (!emailWorker) log.warn("SMTP_URL not set: e-mail queue is not processed");
 
-  // Campaign processors are added in phase C.
-  log.info({ concurrency: env.WORKER_CONCURRENCY, email: Boolean(emailWorker) }, "worker started");
+  const campaignWorker = startCampaignWorker({
+    connection: redis,
+    prisma,
+    log,
+    concurrency: env.WORKER_CONCURRENCY,
+    mockEnabled: env.MESSAGING_MOCK_ENABLED,
+  });
+  log.info({ concurrency: env.WORKER_CONCURRENCY, email: Boolean(emailWorker), mock: env.MESSAGING_MOCK_ENABLED }, "worker started");
 
   onShutdown(async () => {
     health.close();
     await emailWorker?.close();
+    await campaignWorker.close();
     await prisma.$disconnect();
     redis.disconnect();
   }, (m) => log.info(m));

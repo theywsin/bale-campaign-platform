@@ -2,8 +2,9 @@
 
 سامانه SaaS چندمشتریه، فارسی و RTL برای مدیریت مخاطبان و کمپین‌های پیام‌رسان بله.
 
-> **وضعیت:** فاز A (زیرساخت) و فاز B (هسته SaaS: کاربران، سازمان‌ها، نقش‌ها، احراز هویت، پنل فارسی) پیاده‌سازی و تست شده‌اند.
-> مخاطبان، کمپین، اتصال بله، پرداخت و لایسنس هنوز ساخته نشده‌اند و در پنل با برچسب «به‌زودی» نمایش داده می‌شوند.
+> **وضعیت:** فاز A (زیرساخت)، فاز B (هسته SaaS) و فاز C (مخاطبان، CSV، فهرست عدم ارسال، کمپین و صف ارسال) پیاده‌سازی و تست شده‌اند.
+> ارسال کمپین فعلاً فقط با **حساب آزمایشی (Mock)** کار می‌کند که هیچ پیام واقعی نمی‌فرستد. اتصال بله (فاز D)، پرداخت و لایسنس (فاز E)
+> هنوز ساخته نشده‌اند و در پنل با برچسب «به‌زودی» یا توضیح صریح نمایش داده می‌شوند.
 > جزئیات در [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
 ## اجزا
@@ -12,9 +13,11 @@
 |---|---|
 | `apps/web` | Next.js 15 (App Router)، صفحات عمومی، پنل مشتری، پنل مدیریت |
 | `apps/api` | NestJS 11، REST API نسخه `v1`، Swagger در `/api/docs` |
-| `apps/worker` | پردازشگر صف BullMQ (فعلاً ارسال ایمیل) |
-| `apps/scheduler` | کارهای زمان‌بندی‌شده (فعلاً پاک‌سازی نشست‌ها و توکن‌های منقضی) |
-| `packages/shared` | نقش‌ها، مجوزها، اسکیماهای Zod مشترک بین وب و API |
+| `apps/worker` | پردازشگر صف BullMQ: ارسال ایمیل و ارسال کمپین |
+| `apps/scheduler` | انتقال Outbox به صف، شروع کمپین‌های زمان‌بندی‌شده، بازیابی ارسال‌های گیرکرده، پاک‌سازی نشست‌ها |
+| `packages/shared` | نقش‌ها، مجوزها، اسکیماهای Zod، نرمال‌سازی شماره، ماشین وضعیت کمپین و سیاست Retry |
+| `packages/messaging` | قرارداد `MessagingProvider`، نرمال‌سازی خطا و `MockMessagingProvider` (فقط تست) |
+| `packages/engine` | موتور ارسال کمپین، Outbox relay، زمان‌بندی و بازیابی (مشترک worker، scheduler و تست‌ها) |
 | `packages/database` | Prisma Client مشترک |
 | `packages/config` | اعتبارسنجی متغیرهای محیطی و ابزار health/shutdown |
 | `prisma/` | `schema.prisma` و migrationها |
@@ -40,8 +43,13 @@ npm run build                                  # ساخت پکیج‌ها و ا�
 # در سه ترمینال جدا:
 npm run dev:api                                # http://localhost:4000/api/v1/health
 npm run dev:web                                # http://localhost:3000
-npm run dev -w @bcp/worker                     # اختیاری
+npm run dev -w @bcp/worker                     # لازم برای ارسال کمپین
+npm run dev -w @bcp/scheduler                  # لازم برای ارسال کمپین (Outbox و زمان‌بندی)
 ```
+
+در `.env.example` مقدار `MESSAGING_MOCK_ENABLED=true` است تا روند کمپین با حساب آزمایشی قابل امتحان باشد.
+در حساب آزمایشی نتیجه با رقم‌های پایانی شناسه چت تعیین می‌شود: `…991` رد، `…992` خطای موقت (موفق در تلاش دوم)،
+`…993` نامشخص، `…994` محدودیت نرخ، بقیه «پذیرفته‌شده».
 
 Swagger در حالت توسعه: http://localhost:4000/api/docs (با `SWAGGER_ENABLED=true`).
 
@@ -59,9 +67,9 @@ ADMIN_EMAIL=ops@example.com ADMIN_FULL_NAME="مدیر سامانه" ADMIN_PASSWO
 ## تست‌ها
 
 ```bash
-npm test                    # unit: packages/shared (node:test) و apps/api (jest)
+npm test                    # unit: packages/shared و packages/messaging (node:test) و apps/api (jest)
 npm run test:integration    # integration و امنیتی API — به PostgreSQL و Redis محلی نیاز دارد
-npm run test:e2e            # E2E — API روی 4000 و وب روی 3000 باید در حال اجرا باشند
+npm run test:e2e            # E2E — API، worker، scheduler و وب (3000) باید در حال اجرا باشند
 ```
 
 - تست‌های integration از دیتابیس جداگانه `bcp_test` و Redis DB شماره 15 و 14 استفاده می‌کنند (قابل تغییر با `TEST_DATABASE_URL` و `TEST_REDIS_URL`).
@@ -105,10 +113,10 @@ curl http://127.0.0.1:8080/api/v1/health/ready
 | `APP_URL` | نشانی عمومی پنل، مثل `https://panel.example.com` |
 | `COOKIE_SECURE` | در production باید `true` باشد (API در غیر این صورت اجرا نمی‌شود) |
 | `SMTP_URL` / `MAIL_FROM` | اختیاری؛ بدون آن ایمیل بازیابی رمز و دعوت‌نامه ارسال نمی‌شود |
+| `MESSAGING_MOCK_ENABLED` | پیش‌فرض `false`؛ فقط برای محیط آزمایشی `true` شود (حساب Mock، بدون ارسال واقعی) |
 
 ## آنچه هنوز برای انتشار عمومی آماده نیست
 
-- مخاطبان، CSV، کمپین، صف ارسال (فاز C)
 - اتصال واقعی بله (فاز D) — `tapi.bale.ai` از محیط توسعه در دسترس نبود و هیچ ارسال واقعی تست نشده است
 - پلن، اشتراک، پرداخت و لایسنس (فاز E)
 - تیکت پشتیبانی، تنظیمات سامانه در پنل ادمین

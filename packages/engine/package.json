@@ -1,0 +1,19 @@
+{
+  "name": "@bcp/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Campaign dispatch, transactional outbox relay, scheduling and recovery (used by worker and scheduler)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@bcp/database": "0.1.0",
+    "@bcp/messaging": "0.1.0",
+    "@bcp/shared": "0.1.0",
+    "bullmq": "5.81.5",
+    "ioredis": "5.11.1"
+  }
+}

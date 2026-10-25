@@ -36,6 +36,12 @@
 
 `tapi.bale.ai` از محیط توسعه فعلی (پروکسی شبکه) در دسترس نبود؛ بنابراین هیچ فراخوانی واقعی انجام نشده است. پیش از فعال‌سازی، اتصال باید در محیطی با دسترسی به بله و با یک بازوی آزمایشی تأیید شود.
 
+## وضعیت فاز C
+
+- قرارداد `MessagingProvider` (`sendText` + `MessagingError` با نوع‌های `RETRYABLE` / `PERMANENT` / `UNKNOWN_OUTCOME`) و `normalizeHttpFailure` در `packages/messaging` پیاده و تست شده است.
+- فقط `MockMessagingProvider` فعال است. شروع کمپین با حساب `BALE_BOT` در API رد می‌شود و worker هم آن را «پیاده‌سازی‌نشده» گزارش می‌کند.
+- گیرنده بدون شناسه چت بله در گزارش با `NO_CHAT_ID` ناموفق ثبت می‌شود؛ ارسال بر اساس شماره موبایل پشتیبانی نمی‌شود.
+
 ## طرح پیاده‌سازی (فاز D)
 
 - رابط `MessagingProvider` در `packages/messaging`: `capabilities()`, `checkConnection()`, `send()`, `getResult()`, `getDeliveryStatus()` (برای بله: unsupported), `disconnect()`, `deleteCredentials()`, `normalizeError()`.

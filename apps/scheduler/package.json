@@ -11,6 +11,8 @@
   "dependencies": {
     "@bcp/config": "0.1.0",
     "@bcp/database": "0.1.0",
+    "@bcp/engine": "0.1.0",
+    "@bcp/shared": "0.1.0",
     "bullmq": "5.81.5",
     "ioredis": "5.11.1",
     "pino": "10.4.0",

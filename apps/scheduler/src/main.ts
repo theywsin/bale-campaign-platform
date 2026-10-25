@@ -4,6 +4,7 @@ import { Redis } from "ioredis";
 import pino from "pino";
 import { loadSchedulerEnv } from "./env";
 import { purgeExpiredAuthData } from "./maintenance";
+import { startCampaignLoops } from "./campaign-loops";
 
 const MAINTENANCE_INTERVAL_MS = 60 * 60 * 1000;
 const LOCK_KEY = "scheduler:lock:maintenance";
@@ -39,11 +40,12 @@ async function main(): Promise<void> {
   const timer = setInterval(() => void runMaintenance(), MAINTENANCE_INTERVAL_MS);
   void runMaintenance();
 
-  // Campaign scheduling and the transactional outbox relay are added in phase C.
+  const campaignLoops = startCampaignLoops({ prisma, redis, redisUrl: env.REDIS_URL, log });
   log.info("scheduler started");
 
   onShutdown(async () => {
     clearInterval(timer);
+    await campaignLoops.close();
     health.close();
     await prisma.$disconnect();
     redis.disconnect();

@@ -23,7 +23,21 @@ PostgreSQL 17، Prisma 7 (با driver adapter `@prisma/adapter-pg`). اسکیم�
 | `audit_logs` | گزارش ممیزی، فقط افزودنی | trigger مانع UPDATE؛ ایندکس‌های `(organization_id, created_at desc)` و ... |
 | `system_settings` | تنظیمات کلیدی سامانه | — |
 
-مدل‌های فاز C تا E (Contact، Campaign، MessageAttempt، Plan، Subscription، License، Payment، WebhookEvent، SupportTicket و ...) با migrationهای جدید اضافه می‌شوند.
+## جدول‌ها (فاز C)
+
+| جدول | توضیح | قیود و ایندکس‌های مهم |
+|---|---|---|
+| `contacts` | مخاطب؛ `phone` به‌صورت E.164، `bale_chat_id` برای ارسال با بازو، `consent` (UNKNOWN/OPTED_IN/OPTED_OUT) | `(organization_id, phone)` و `(organization_id, bale_chat_id)` unique؛ `(organization_id, status, created_at desc)` |
+| `contact_lists`, `contact_list_members` | فهرست‌ها و عضویت چندبه‌چند | `(organization_id, name)` unique؛ کلید `(list_id, contact_id)` |
+| `suppression_entries` | فهرست عدم ارسال (موبایل یا شناسه چت) | `(organization_id, kind, value)` unique |
+| `contact_imports` | خلاصه هر ورود CSV؛ حداکثر ۵۰۰ خطا (شماره سطر + علت، بدون داده کامل سطر) | `(organization_id, created_at desc)` |
+| `messaging_accounts` | حساب ارسال (`MOCK` فقط تست، `BALE_BOT` در فاز D)؛ `credentials_encrypted` هرگز از API برنمی‌گردد | `organization_id` |
+| `campaigns` | کمپین؛ `list_id` خالی یعنی همه مخاطبان فعال | `(organization_id, created_at desc)`؛ `(status, scheduled_at)` |
+| `campaign_recipients` | یک ردیف برای هر گیرنده (snapshot شناسه چت در لحظه شروع) | `(campaign_id, contact_id)` unique؛ `(campaign_id, status, next_attempt_at)`؛ `(status, locked_at)` |
+| `message_attempts` | هر فراخوانی ارائه‌دهنده؛ **پیش از** فراخوانی ساخته می‌شود | `(recipient_id, attempt_no)` unique |
+| `outbox_events` | Transactional Outbox | `(status, available_at)` |
+
+مدل‌های فاز D و E (Plan، Subscription، License، Payment، WebhookEvent، SupportTicket و ...) با migrationهای جدید اضافه می‌شوند.
 
 ## Migrationها
 
@@ -32,6 +46,7 @@ PostgreSQL 17، Prisma 7 (با driver adapter `@prisma/adapter-pg`). اسکیم�
 | `20261025114633_init` | `system_settings` |
 | `20261025120430_identity_and_organizations` | کاربران، نشست‌ها، سازمان‌ها، دعوت‌نامه، audit + ایندکس partial و trigger دستی |
 | `20261025121000_audit_log_allow_org_set_null` | اجازه به `ON DELETE SET NULL` روی audit در حذف سخت سازمان |
+| `20261025130617_contacts_and_campaigns` | مخاطبان، فهرست‌ها، عدم ارسال، ورود CSV، حساب پیام‌رسان، کمپین، گیرنده، تلاش ارسال، outbox |
 
 دستورها:
 
@@ -55,6 +70,10 @@ docker compose run --rm migrate           # در استقرار Docker
 - ثبت‌نام (کاربر + سازمان + عضویت + audit) در یک تراکنش.
 - مصرف توکن‌ها با `UPDATE ... WHERE used_at IS NULL RETURNING` اتمیک است؛ دو درخواست هم‌زمان نمی‌توانند یک توکن را دو بار مصرف کنند.
 - حذف عضو با سطح `SERIALIZABLE` تا بررسی «حداقل یک مالک» در رقابت هم‌زمان نقض نشود.
+- شروع کمپین: تغییر وضعیت (با شرط `status='DRAFT'`)، ثبت گیرندگان با یک `INSERT ... SELECT` و ثبت رویداد outbox در **یک تراکنش**.
+- برداشتن گیرندگان برای ارسال: `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED) RETURNING`؛ دو worker هرگز یک گیرنده را هم‌زمان برنمی‌دارند.
+- انتقال وضعیت کمپین همیشه `updateMany` با شرط وضعیت‌های مجاز (از ماشین وضعیت `@bcp/shared`) است؛ رقابت دو درخواست یکی را با ۴۰۹ رد می‌کند.
+- حذف مخاطب: گیرندگان در انتظار او `SUPPRESSED` می‌شوند و ردیف گزارش با `contact_id = NULL` باقی می‌ماند.
 
 ## Row-Level Security
 
