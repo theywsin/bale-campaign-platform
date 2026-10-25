@@ -1,0 +1,17 @@
+{
+  "name": "@bcp/database",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared Prisma client for all apps",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "pg": "8.23.1"
+  }
+}

@@ -1,0 +1,27 @@
+// Bale Campaign Platform — Prisma schema
+// Conventions: UUID primary keys, timestamptz columns (stored in UTC),
+// snake_case table/column names via @@map/@map.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../packages/database/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// System
+// ---------------------------------------------------------------------------
+
+model SystemSetting {
+  key         String   @id @db.VarChar(100)
+  value       Json
+  description String?  @db.VarChar(500)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById String?  @map("updated_by_id") @db.Uuid
+
+  @@map("system_settings")
+}

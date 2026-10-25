@@ -1,0 +1,19 @@
+{
+  "name": "@bcp/scheduler",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/main.js",
+    "dev": "tsc -p tsconfig.json && (tsc -p tsconfig.json --watch --preserveWatchOutput & node --env-file-if-exists=../../.env --watch-path=dist dist/main.js)"
+  },
+  "dependencies": {
+    "@bcp/config": "0.1.0",
+    "@bcp/database": "0.1.0",
+    "bullmq": "5.81.5",
+    "ioredis": "5.11.1",
+    "pino": "10.4.0",
+    "zod": "4.6.7"
+  }
+}

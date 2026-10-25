@@ -1,0 +1,42 @@
+# Local development: runs only PostgreSQL and Redis, published on 127.0.0.1
+# so apps started with `npm run dev:*` on the host can reach them.
+# Usage: docker compose -f docker-compose.dev.yml up -d
+
+name: bale-campaign-dev
+
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bcp
+      POSTGRES_PASSWORD: ${DEV_POSTGRES_PASSWORD:-bcp_dev_only}
+      POSTGRES_DB: bcp
+      TZ: UTC
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - dev-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bcp -d bcp"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - dev-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  dev-postgres-data:
+  dev-redis-data:
