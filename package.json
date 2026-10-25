@@ -1,0 +1,50 @@
+{
+  "name": "bale-campaign-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SaaS چندمشتریه مدیریت مخاطبان و کمپین‌های پیام‌رسان بله",
+  "workspaces": [
+    "packages/config",
+    "packages/shared",
+    "packages/database",
+    "apps/api",
+    "apps/worker",
+    "apps/scheduler",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=22.12.0 <23",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:status": "prisma migrate status",
+    "build:packages": "npm run build -w @bcp/config -w @bcp/shared -w @bcp/database",
+    "build": "npm run db:generate && npm run build:packages && npm run build -w @bcp/api -w @bcp/worker -w @bcp/scheduler -w @bcp/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:integration": "npm run test:integration -w @bcp/api",
+    "test:e2e": "node --test --test-concurrency=1 tests/e2e/*.e2e.test.mjs",
+    "dev:api": "npm run dev -w @bcp/api",
+    "dev:web": "npm run dev -w @bcp/web",
+    "admin:create": "npm run admin:create -w @bcp/api"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "dotenv": "17.4.2",
+    "playwright": "1.63.0",
+    "prisma": "7.10.1",
+    "typescript": "5.9.3"
+  },
+  "overrides": {
+    "multer": "2.5.0",
+    "next": {
+      "postcss": "8.5.31"
+    },
+    "@nestjs/swagger": {
+      "js-yaml": "5.5.0"
+    }
+  }
+}
