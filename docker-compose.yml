@@ -12,6 +12,9 @@ x-node-env: &node-env
   REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
   # Test-only mock messaging provider; never enable on a real deployment.
   MESSAGING_MOCK_ENABLED: ${MESSAGING_MOCK_ENABLED:-false}
+  # base64 of 32 random bytes (openssl rand -base64 32). Required for Bale bot accounts; keep a backup.
+  CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY:-}
+  BALE_API_BASE_URL: ${BALE_API_BASE_URL:-https://tapi.bale.ai}
 
 x-logging: &logging
   driver: json-file
@@ -111,12 +114,14 @@ services:
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-168}
       SESSION_IDLE_TIMEOUT_HOURS: ${SESSION_IDLE_TIMEOUT_HOURS:-48}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      AUTH_RATE_LIMIT_PER_MINUTE: ${AUTH_RATE_LIMIT_PER_MINUTE:-10}
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
-    networks: [backend, frontend]
+    # `egress`: the API verifies bot tokens with Bale getMe when an account is added.
+    networks: [backend, frontend, egress]
     deploy:
       resources:
         limits: { cpus: "1", memory: 512m }
@@ -140,7 +145,7 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
-    # `egress` lets the worker reach SMTP and, later, the messaging provider API.
+    # `egress` lets the worker reach SMTP and the Bale Bot API.
     networks: [backend, egress]
     deploy:
       resources:

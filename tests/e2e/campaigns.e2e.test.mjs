@@ -93,8 +93,9 @@ describe("contacts and campaigns", () => {
       await page.context().close();
       return;
     }
-    await page.getByLabel("سقف پیام در دقیقه").fill("600");
-    await page.getByRole("button", { name: "ساخت حساب آزمایشی" }).click();
+    const mockForm = page.getByRole("form", { name: "ساخت حساب آزمایشی" });
+    await mockForm.getByLabel("سقف پیام در دقیقه").fill("600");
+    await mockForm.getByRole("button", { name: "ساخت حساب آزمایشی" }).click();
     await page.getByText("آزمایشی — پیام واقعی ارسال نمی‌شود").waitFor();
 
     // Contacts: accepted, rejected (…991), unknown (…993), and one without chat id.
@@ -134,6 +135,48 @@ describe("contacts and campaigns", () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(overflow <= 1, `horizontal overflow ${overflow}px`);
     await page.screenshot({ path: `${SHOTS}/campaign-report-mobile.png`, fullPage: true });
+    await page.context().close();
+  });
+});
+
+// Requires the stack's BALE_API_BASE_URL to point at tests/fake-bale/server.mjs (or a real
+// Bale test bot) and E2E_BALE_TOKEN to be a token that API accepts.
+const BALE_TOKEN = process.env.E2E_BALE_TOKEN;
+describe("Bale bot account", { skip: BALE_TOKEN ? false : "set E2E_BALE_TOKEN (see tests/fake-bale/server.mjs)" }, () => {
+  test("connect a bot, send a campaign through it and see ACCEPTED (not delivered)", async () => {
+    const page = await newPage();
+    const orgId = await register(page);
+    await page.goto(`${BASE}/app/${orgId}/messaging-accounts`);
+    await page.getByRole("heading", { name: "افزودن بازوی بله" }).waitFor();
+    const form = page.getByRole("form", { name: "افزودن بازوی بله" });
+    await form.getByLabel("نام حساب").fill("بازوی فروشگاه");
+    await form.getByLabel("توکن بازو").fill("000000:definitely_wrong_token");
+    await form.getByRole("button", { name: "بررسی و اتصال" }).click();
+    await form.getByText("توکن معتبر نیست.").waitFor();
+    await form.getByLabel("توکن بازو").fill(BALE_TOKEN);
+    await form.getByRole("button", { name: "بررسی و اتصال" }).click();
+    await page.getByText("بازو متصل شد.").waitFor();
+    assert.equal(await page.getByText(BALE_TOKEN).count(), 0);
+
+    const csv = path.join(tmpdir(), `bale-${uid()}.csv`);
+    writeFileSync(csv, "name,bale_chat_id\nیک,70001\nدو,70400\n");
+    await page.goto(`${BASE}/app/${orgId}/contacts/import`);
+    await page.getByLabel("فایل CSV (UTF-8)").setInputFiles(csv);
+    await page.getByRole("button", { name: "بارگذاری و ورود" }).click();
+    await page.getByText("ورود فایل انجام شد").waitFor();
+
+    await page.goto(`${BASE}/app/${orgId}/campaigns/new`);
+    await page.getByLabel("حساب ارسال").selectOption({ label: "بازوی فروشگاه" });
+    await page.getByLabel("نام کمپین").fill("کمپین بله");
+    await page.getByLabel("متن پیام").fill("سلام از بازو");
+    await page.getByRole("button", { name: "ذخیره پیش‌نویس" }).click();
+    await page.waitForURL(/\/campaigns\/[0-9a-f-]{36}$/);
+    await page.getByRole("button", { name: "شروع ارسال" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "شروع ارسال" }).click();
+    await page.getByText("پایان‌یافته", { exact: true }).waitFor({ timeout: 60_000 });
+    await page.getByRole("cell", { name: "پذیرفته‌شده توسط سرویس" }).waitFor();
+    await page.getByRole("cell", { name: /chat not found/ }).waitFor();
+    await page.screenshot({ path: `${SHOTS}/bale-campaign.png`, fullPage: true });
     await page.context().close();
   });
 });

@@ -46,6 +46,7 @@ PostgreSQL 17، Prisma 7 (با driver adapter `@prisma/adapter-pg`). اسکیم�
 | `20261025114633_init` | `system_settings` |
 | `20261025120430_identity_and_organizations` | کاربران، نشست‌ها، سازمان‌ها، دعوت‌نامه، audit + ایندکس partial و trigger دستی |
 | `20261025121000_audit_log_allow_org_set_null` | اجازه به `ON DELETE SET NULL` روی audit در حذف سخت سازمان |
+| `20261025161242_messaging_account_identity` | `external_name` (نام کاربری بازو) و `last_checked_at` در `messaging_accounts` |
 | `20261025130617_contacts_and_campaigns` | مخاطبان، فهرست‌ها، عدم ارسال، ورود CSV، حساب پیام‌رسان، کمپین، گیرنده، تلاش ارسال، outbox |
 
 دستورها:

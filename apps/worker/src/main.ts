@@ -35,6 +35,8 @@ async function main(): Promise<void> {
     log,
     concurrency: env.WORKER_CONCURRENCY,
     mockEnabled: env.MESSAGING_MOCK_ENABLED,
+    credentialsKey: env.CREDENTIALS_ENCRYPTION_KEY,
+    baleApiBaseUrl: env.BALE_API_BASE_URL,
   });
   log.info({ concurrency: env.WORKER_CONCURRENCY, email: Boolean(emailWorker), mock: env.MESSAGING_MOCK_ENABLED }, "worker started");
 

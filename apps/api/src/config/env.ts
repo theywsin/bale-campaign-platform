@@ -1,4 +1,4 @@
-import { baseEnvSchema, booleanFlag, commaList, parseEnv } from "@bcp/config";
+import { baseEnvSchema, booleanFlag, checkProductionMessagingEnv, commaList, parseEnv } from "@bcp/config";
 import { z } from "zod";
 
 export const apiEnvSchema = baseEnvSchema
@@ -24,6 +24,7 @@ export const apiEnvSchema = baseEnvSchema
     MAIL_FROM: z.string().default("Bale Campaign <no-reply@example.com>"),
   })
   .superRefine((env, ctx) => {
+    checkProductionMessagingEnv(env, ctx);
     if (env.NODE_ENV === "production" && !env.COOKIE_SECURE) {
       ctx.addIssue({ code: "custom", path: ["COOKIE_SECURE"], message: "must be true in production" });
     }

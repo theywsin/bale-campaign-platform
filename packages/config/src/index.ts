@@ -29,7 +29,25 @@ export const baseEnvSchema = z.object({
   REDIS_URL: z.string().url({ message: "REDIS_URL must be a valid redis URL" }),
   /** Allows the test-only mock messaging provider. Keep false in production. */
   MESSAGING_MOCK_ENABLED: booleanFlag(false),
+  /** base64 of 32 random bytes; encrypts bot tokens. Without it Bale accounts cannot be added or used. */
+  CREDENTIALS_ENCRYPTION_KEY: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v : undefined))
+    .refine((v) => v === undefined || Buffer.from(v, "base64").length === 32, { message: "must be 32 bytes, base64-encoded" }),
+  /** Bale Bot API base URL. Only tests point this elsewhere. */
+  BALE_API_BASE_URL: z.string().url().default("https://tapi.bale.ai"),
 });
+
+/** Shared production check for apps whose schema extends baseEnvSchema (add in their superRefine). */
+export function checkProductionMessagingEnv(
+  env: { NODE_ENV: string; BALE_API_BASE_URL: string },
+  ctx: { addIssue(issue: { code: "custom"; path: string[]; message: string }): void },
+): void {
+  if (env.NODE_ENV === "production" && !env.BALE_API_BASE_URL.startsWith("https://")) {
+    ctx.addIssue({ code: "custom", path: ["BALE_API_BASE_URL"], message: "must use https in production" });
+  }
+}
 
 export class EnvValidationError extends Error {
   constructor(public readonly issues: string[]) {

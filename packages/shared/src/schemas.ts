@@ -248,6 +248,19 @@ export const createMockAccountSchema = z.object({
 });
 export type CreateMockAccountInput = z.input<typeof createMockAccountSchema>;
 
+export const createBaleBotAccountSchema = z.object({
+  displayName: createMockAccountSchema.shape.displayName,
+  token: z
+    .string({ error: "توکن بازو الزامی است." })
+    .trim()
+    .regex(/^[A-Za-z0-9:_-]{10,200}$/, "قالب توکن بازو معتبر نیست."),
+  /** Bale does not document a rate limit; a conservative default is used. */
+  rateLimitPerMinute: z.coerce.number().int().min(1).max(600).default(20),
+});
+export type CreateBaleBotAccountInput = z.input<typeof createBaleBotAccountSchema>;
+
+export const rotateBotTokenSchema = z.object({ token: createBaleBotAccountSchema.shape.token });
+
 /** Conservative limit; Bale's documented maximum is confirmed in phase D. */
 export const CAMPAIGN_MESSAGE_MAX_LENGTH = 4000;
 
