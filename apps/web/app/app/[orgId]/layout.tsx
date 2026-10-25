@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, CreditCard, LayoutDashboard, LifeBuoy, ListTree, Megaphone, MessagesSquare, Settings, Shield, UserCog, Users } from "lucide-react";
+import { Ban, ChevronDown, CreditCard, LayoutDashboard, LifeBuoy, ListTree, Megaphone, MessagesSquare, Settings, Shield, UserCog, Users } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -40,10 +40,11 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
         const canManage = org.role !== "ORGANIZATION_MEMBER";
         const nav: NavItem[] = [
           { href: base, label: "داشبورد", Icon: LayoutDashboard, exact: true },
-          { href: `${base}/contacts`, label: "مخاطبان", Icon: Users, soon: true },
-          { href: `${base}/lists`, label: "فهرست‌های مخاطبان", Icon: ListTree, soon: true },
-          { href: `${base}/campaigns`, label: "کمپین‌ها", Icon: Megaphone, soon: true },
-          { href: `${base}/messaging-accounts`, label: "حساب‌های پیام‌رسان", Icon: MessagesSquare, soon: true },
+          { href: `${base}/contacts`, label: "مخاطبان", Icon: Users },
+          { href: `${base}/lists`, label: "فهرست‌های مخاطبان", Icon: ListTree },
+          { href: `${base}/suppressions`, label: "فهرست عدم ارسال", Icon: Ban },
+          { href: `${base}/campaigns`, label: "کمپین‌ها", Icon: Megaphone },
+          { href: `${base}/messaging-accounts`, label: "حساب‌های پیام‌رسان", Icon: MessagesSquare },
           { href: `${base}/billing`, label: "اشتراک و پرداخت", Icon: CreditCard, soon: true },
           { href: `${base}/support`, label: "تیکت پشتیبانی", Icon: LifeBuoy, soon: true },
           { href: `${base}/members`, label: "اعضا و نقش‌ها", Icon: UserCog },

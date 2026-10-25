@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { ORGANIZATION_ROLES } from "./roles";
+import { normalizeChatId, normalizePhone } from "./phone";
+import { RECIPIENT_STATUSES } from "./campaign";
 
 /** Error messages are user facing and therefore Persian. */
 
@@ -105,4 +107,181 @@ export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
 
 export const adminUpdateUserStatusSchema = z.object({
   status: z.enum(["ACTIVE", "SUSPENDED"], { error: "وضعیت نامعتبر است." }),
+});
+
+// ---------------------------------------------------------------------------
+// Contacts, lists, suppression
+// ---------------------------------------------------------------------------
+
+const optionalName = (label: string) =>
+  z
+    .string()
+    .trim()
+    .max(100, `${label} حداکثر ۱۰۰ کاراکتر است.`)
+    .refine((v) => !/[<>]/.test(v), { message: `${label} شامل کاراکتر غیرمجاز است.` })
+    .transform((v) => (v === "" ? null : v))
+    .nullish();
+
+export const phoneInputSchema = z
+  .string()
+  .trim()
+  .max(30)
+  .transform((v, ctx) => {
+    if (v === "") return null;
+    const n = normalizePhone(v);
+    if (!n) {
+      ctx.addIssue({ code: "custom", message: "شماره موبایل معتبر نیست." });
+      return z.NEVER;
+    }
+    return n;
+  })
+  .nullish();
+
+export const chatIdInputSchema = z
+  .string()
+  .trim()
+  .max(30)
+  .transform((v, ctx) => {
+    if (v === "") return null;
+    const n = normalizeChatId(v);
+    if (!n) {
+      ctx.addIssue({ code: "custom", message: "شناسه چت بله باید عدد باشد." });
+      return z.NEVER;
+    }
+    return n;
+  })
+  .nullish();
+
+export const CONSENT_STATUSES = ["UNKNOWN", "OPTED_IN", "OPTED_OUT"] as const;
+export type ConsentStatus = (typeof CONSENT_STATUSES)[number];
+export const CONSENT_LABELS_FA: Record<ConsentStatus, string> = {
+  UNKNOWN: "نامشخص",
+  OPTED_IN: "رضایت داده",
+  OPTED_OUT: "انصراف داده",
+};
+
+const contactFields = {
+  firstName: optionalName("نام"),
+  lastName: optionalName("نام خانوادگی"),
+  phone: phoneInputSchema,
+  baleChatId: chatIdInputSchema,
+  notes: z
+    .string()
+    .trim()
+    .max(1000, "یادداشت حداکثر ۱۰۰۰ کاراکتر است.")
+    .transform((v) => (v === "" ? null : v))
+    .nullish(),
+  consent: z.enum(CONSENT_STATUSES, { error: "وضعیت رضایت نامعتبر است." }).optional(),
+};
+
+export const createContactSchema = z
+  .object(contactFields)
+  .refine((c) => Boolean(c.phone || c.baleChatId), {
+    message: "حداقل یکی از شماره موبایل یا شناسه چت بله لازم است.",
+    path: ["phone"],
+  });
+export type CreateContactInput = z.input<typeof createContactSchema>;
+
+export const updateContactSchema = z.object(contactFields).partial();
+export type UpdateContactInput = z.input<typeof updateContactSchema>;
+
+export const contactListQuerySchema = paginationQuerySchema.extend({
+  status: z.enum(["ACTIVE", "ARCHIVED"]).default("ACTIVE"),
+  listId: z.uuid().optional(),
+});
+export type ContactListQuery = z.infer<typeof contactListQuerySchema>;
+
+const listName = z
+  .string({ error: "نام فهرست الزامی است." })
+  .trim()
+  .min(1, "نام فهرست الزامی است.")
+  .max(100, "نام فهرست حداکثر ۱۰۰ کاراکتر است.")
+  .refine((v) => !/[<>]/.test(v), { message: "نام شامل کاراکتر غیرمجاز است." });
+
+export const createContactListSchema = z.object({
+  name: listName,
+  description: z
+    .string()
+    .trim()
+    .max(500)
+    .transform((v) => (v === "" ? null : v))
+    .nullish(),
+});
+export type CreateContactListInput = z.input<typeof createContactListSchema>;
+
+export const listMembershipSchema = z.object({
+  contactIds: z.array(z.uuid({ error: "شناسه مخاطب نامعتبر است." })).min(1).max(500),
+});
+export type ListMembershipInput = z.infer<typeof listMembershipSchema>;
+
+export const createSuppressionSchema = z
+  .object({
+    phone: phoneInputSchema,
+    baleChatId: chatIdInputSchema,
+    reason: z.string().trim().max(200).optional(),
+  })
+  .refine((s) => Boolean(s.phone) !== Boolean(s.baleChatId), {
+    message: "دقیقاً یکی از شماره موبایل یا شناسه چت بله را وارد کنید.",
+    path: ["phone"],
+  });
+export type CreateSuppressionInput = z.input<typeof createSuppressionSchema>;
+
+/** Limits for CSV import (enforced by the API, shown in the UI). */
+export const CSV_IMPORT_MAX_BYTES = 2 * 1024 * 1024;
+export const CSV_IMPORT_MAX_ROWS = 10_000;
+
+// ---------------------------------------------------------------------------
+// Messaging accounts and campaigns
+// ---------------------------------------------------------------------------
+
+export const MESSAGING_PROVIDERS = ["MOCK", "BALE_BOT"] as const;
+export type MessagingProviderType = (typeof MESSAGING_PROVIDERS)[number];
+
+export const createMockAccountSchema = z.object({
+  displayName: z
+    .string({ error: "نام حساب الزامی است." })
+    .trim()
+    .min(2, "نام حساب باید حداقل ۲ کاراکتر باشد.")
+    .max(100)
+    .refine((v) => !/[<>]/.test(v), { message: "نام شامل کاراکتر غیرمجاز است." }),
+  rateLimitPerMinute: z.coerce.number().int().min(1).max(600).default(60),
+});
+export type CreateMockAccountInput = z.input<typeof createMockAccountSchema>;
+
+/** Conservative limit; Bale's documented maximum is confirmed in phase D. */
+export const CAMPAIGN_MESSAGE_MAX_LENGTH = 4000;
+
+const campaignFields = {
+  name: z
+    .string({ error: "نام کمپین الزامی است." })
+    .trim()
+    .min(2, "نام کمپین باید حداقل ۲ کاراکتر باشد.")
+    .max(150, "نام کمپین حداکثر ۱۵۰ کاراکتر است.")
+    .refine((v) => !/[<>]/.test(v), { message: "نام شامل کاراکتر غیرمجاز است." }),
+  messageText: z
+    .string({ error: "متن پیام الزامی است." })
+    .trim()
+    .min(1, "متن پیام الزامی است.")
+    .max(CAMPAIGN_MESSAGE_MAX_LENGTH, `متن پیام حداکثر ${CAMPAIGN_MESSAGE_MAX_LENGTH} کاراکتر است.`),
+  messagingAccountId: z.uuid({ error: "حساب ارسال را انتخاب کنید." }),
+  /** Empty string (the "all contacts" option in forms) means no list. */
+  listId: z.preprocess((v) => (v === "" ? null : v), z.uuid({ error: "فهرست نامعتبر است." }).nullish()),
+};
+
+export const createCampaignSchema = z.object(campaignFields);
+export type CreateCampaignInput = z.input<typeof createCampaignSchema>;
+export const updateCampaignSchema = z.object(campaignFields).partial();
+export type UpdateCampaignInput = z.input<typeof updateCampaignSchema>;
+
+export const startCampaignSchema = z.object({
+  /** ISO timestamp in the future; omitted = send now. */
+  scheduledAt: z.iso
+    .datetime({ offset: true, error: "زمان نامعتبر است." })
+    .optional()
+    .refine((v) => !v || new Date(v).getTime() > Date.now() - 60_000, { message: "زمان ارسال باید در آینده باشد." }),
+});
+export type StartCampaignInput = z.infer<typeof startCampaignSchema>;
+
+export const recipientQuerySchema = paginationQuerySchema.extend({
+  status: z.enum(RECIPIENT_STATUSES).optional(),
 });

@@ -25,3 +25,17 @@ test("registration requires accepting the terms and rejects markup in names", ()
 test("new password must differ from the current one", () => {
   assert.equal(changePasswordSchema.safeParse({ currentPassword: "goodpassword1", newPassword: "goodpassword1" }).success, false);
 });
+
+test("campaign form: empty list means all contacts, account is required", async () => {
+  const { createCampaignSchema } = await import("./schemas");
+  const base = { name: "کمپین", messageText: "سلام", messagingAccountId: "0199a6f2-7c1e-7aaa-8bbb-123456789abc" };
+  assert.equal(createCampaignSchema.parse({ ...base, listId: "" }).listId, null);
+  assert.equal(createCampaignSchema.safeParse({ ...base, messagingAccountId: "" }).success, false);
+});
+
+test("contact needs a phone or a chat id and normalizes both", async () => {
+  const { createContactSchema } = await import("./schemas");
+  assert.equal(createContactSchema.safeParse({ firstName: "x" }).success, false);
+  const c = createContactSchema.parse({ phone: "۰۹۱۲۱۲۳۴۵۶۷", baleChatId: " ۱۲۳ ", firstName: "" });
+  assert.deepEqual([c.phone, c.baleChatId, c.firstName], ["+989121234567", "123", null]);
+});

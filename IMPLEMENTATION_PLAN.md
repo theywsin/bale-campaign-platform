@@ -36,7 +36,8 @@ apps/worker      پردازشگر صف (BullMQ) — پردازش کمپین از
 apps/scheduler   زمان‌بند و انتشار Outbox — از فاز C
 packages/database  Prisma Client مشترک
 packages/shared    نقش‌ها، مجوزها، اسکیماهای Zod، ماشین وضعیت‌ها
-packages/messaging (فاز D) قرارداد MessagingProvider
+packages/messaging قرارداد MessagingProvider، نرمال‌سازی خطا، Mock (فاز C)
+packages/engine    موتور ارسال کمپین، Outbox relay، بازیابی (فاز C)
 packages/licensing (فاز E)
 prisma/          schema.prisma و migrations
 infra/           Dockerfile ها، nginx، اسکریپت بکاپ/ریستور
@@ -69,6 +70,14 @@ docs/            مستندات
 ### فاز C — مخاطبان و کمپین
 Contact، ContactList، SuppressionEntry، ورود/خروج CSV (با جلوگیری از CSV Injection)، Campaign و CampaignRecipient، Transactional Outbox، صف BullMQ، توقف/ادامه، Retry فقط برای خطاهای قابل‌تکرار، وضعیت UNKNOWN بدون ارسال مجدد خودکار.
 
+**پذیرش:** تست unit برای نرمال‌سازی شماره، ماشین وضعیت، سیاست Retry، نرمال‌سازی خطای ارائه‌دهنده و CSV؛ integration برای ایجاد مخاطب، ورود CSV، ایجاد/شروع/توقف/لغو کمپین، Retry، UNKNOWN، بازیابی و جداسازی سازمان‌ها؛ E2E برای ورود CSV، ارسال کمپین آزمایشی و گزارش.
+
+تصمیم‌ها:
+- ارسال فقط با شناسه چت بله؛ مخاطب بدون شناسه چت در گزارش با `NO_CHAT_ID` ناموفق ثبت می‌شود (بازو فقط به چت‌هایی که آن را شروع کرده‌اند پیام می‌دهد).
+- مخاطب انصراف‌داده و فهرست عدم ارسال هم هنگام شروع کمپین و هم پیش از هر ارسال کنترل می‌شوند.
+- لغو کمپین گیرندگان ارسال‌نشده را `FAILED` با کد `CAMPAIGN_CANCELLED` می‌بندد (هفت وضعیت گیرنده تغییر نکرده است).
+- متغیرهای شخصی‌سازی متن پیام (مثل نام مخاطب) هنوز پشتیبانی نمی‌شوند.
+
 ### فاز D — اتصال پیام‌رسان
 `MessagingProvider`، `MockMessagingProvider` (فقط تست، با برچسب آزمایشی در UI)، پیاده‌سازی Bale Bot API فقط برای قابلیت‌های مستند. نتایج اولیه بررسی مستندات در `BALE_INTEGRATION.md` (در فاز D کامل می‌شود):
 - API رسمی بازو: `https://tapi.bale.ai/bot<token>/<method>` (منبع: https://docs.bale.ai/)
@@ -99,12 +108,23 @@ Plan، Subscription، Order، Payment (با تاریخچه وضعیت)، Webhook
 |---|---|
 | A | ✅ انجام‌شده و تست‌شده |
 | B | ✅ انجام‌شده و تست‌شده |
-| C | شروع‌نشده |
+| C | ✅ انجام‌شده و تست‌شده (ارسال فقط با حساب آزمایشی Mock) |
 | D | شروع‌نشده (فقط بررسی مستندات بله، در `BALE_INTEGRATION.md`) |
 | E | شروع‌نشده |
 | F | شروع‌نشده |
 
-## نتایج تست (۲۰۲۶-۱۰-۲۵)
+## نتایج تست فاز C (۲۰۲۶-۱۰-۲۵)
+
+| دستور | نتیجه |
+|---|---|
+| `npm run build` و `npm run typecheck` | موفق، بدون خطا |
+| `npm test` | ۲۳ تست `packages/shared` + ۳ تست `packages/messaging` + ۱۲ تست unit در API — همه موفق |
+| `npm run test:integration` | ۴۱ تست در ۷ فایل (۱۲ تست جدید در `contacts.int.ts` و `campaigns.int.ts`) — همه موفق |
+| `npm run test:e2e` روی API + worker + scheduler + `next start` محلی | ۱۱ تست (۲ تست جدید فاز C؛ تست پنل ادمین بدون `E2E_ADMIN_*` اجرا نمی‌شود) — همه موفق؛ کمپین آزمایشی واقعاً از Outbox → scheduler → BullMQ → worker عبور کرد |
+| `npm audit` | ۰ آسیب‌پذیری |
+| Docker Compose (ایمیج‌های جدید، `MESSAGING_MOCK_ENABLED=true` فقط برای این تست) | migrate با کد ۰، ۷ سرویس healthy؛ `npm run test:e2e` روی nginx (پورت 8080) با مدیر ساخته‌شده از CLI: ۱۲ تست — همه موفق؛ لاگ worker «campaign completed» را نشان داد |
+
+## نتایج تست فاز A و B (۲۰۲۶-۱۰-۲۵)
 
 همه دستورها در محیط توسعه واقعاً اجرا شدند:
 
@@ -129,12 +149,13 @@ Plan، Subscription، Order، Payment (با تاریخچه وضعیت)، Webhook
 | ثبت‌نام و ورود، دسترسی سازمان | B | ✅ integration + E2E |
 | جلوگیری از دسترسی به سازمان دیگر، پنل ادمین، Rate Limit، ورودی مخرب، افشای اسرار در API و لاگ | B | ✅ integration/unit |
 | E2E ثبت‌نام، ورود، ایجاد فضای کاری | B | ✅ |
-| اعتبارسنجی پلن/اشتراک/لایسنس، انتقال وضعیت کمپین، سیاست Retry، نرمال‌سازی خطای ارائه‌دهنده | C–E | ⏳ با پیاده‌سازی همان فازها |
-| ایجاد مخاطب/کمپین، توقف کمپین، وب‌هوک تکراری، اشتراک با پرداخت تأییدنشده | C–E | ⏳ |
-| E2E ورود مخاطب، کمپین آزمایشی، گزارش، پلن و اشتراک | C–E | ⏳ |
+| انتقال وضعیت کمپین، سیاست Retry، نرمال‌سازی خطای ارائه‌دهنده | C | ✅ unit (`campaign.test.ts`, `provider.test.ts`) |
+| ایجاد مخاطب/کمپین، توقف کمپین، جداسازی سازمان‌ها در مخاطب و کمپین | C | ✅ integration |
+| E2E ورود مخاطب، کمپین آزمایشی، گزارش | C | ✅ |
+| اعتبارسنجی پلن/اشتراک/لایسنس، وب‌هوک تکراری، اشتراک با پرداخت تأییدنشده، E2E پلن و اشتراک | E | ⏳ |
 
 ### کارهای باقی‌مانده
 
-- فاز C تا F طبق بخش‌های بالا.
+- فاز D تا F طبق بخش‌های بالا.
 - RLS، احراز هویت دومرحله‌ای برای مدیران، CSP مبتنی بر nonce (جزئیات در `SECURITY.md`).
 - اتصال واقعی بله در محیطی با دسترسی به `tapi.bale.ai` تأیید شود.

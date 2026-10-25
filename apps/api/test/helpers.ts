@@ -46,6 +46,14 @@ export class Client {
   patch(path: string, body?: object) {
     return this.agent.patch(`/api/v1${path}`).set("X-CSRF-Token", this.csrf).set("Origin", ORIGIN).send(body ?? {});
   }
+  put(path: string, body?: object) {
+    return this.agent.put(`/api/v1${path}`).set("X-CSRF-Token", this.csrf).set("Origin", ORIGIN).send(body ?? {});
+  }
+  upload(path: string, field: string, content: string, filename: string, fields: Record<string, string> = {}) {
+    let req = this.agent.post(`/api/v1${path}`).set("X-CSRF-Token", this.csrf).set("Origin", ORIGIN);
+    for (const [k, v] of Object.entries(fields)) req = req.field(k, v);
+    return req.attach(field, Buffer.from(content, "utf8"), filename);
+  }
   delete(path: string) {
     return this.agent.delete(`/api/v1${path}`).set("X-CSRF-Token", this.csrf).set("Origin", ORIGIN);
   }
@@ -88,4 +96,9 @@ export async function lastEmailToken(app: INestApplication, to: string, kind: Em
   const match = /token=([A-Za-z0-9_-]+)/.exec(job.data.text);
   if (!match?.[1]) throw new Error("no token in e-mail");
   return match[1];
+}
+
+/** Adds `user` to `orgId` with `role` directly in the database (bypasses the invitation flow). */
+export async function addMember(app: INestApplication, orgId: string, userId: string, role: "ORGANIZATION_ADMIN" | "ORGANIZATION_MEMBER") {
+  await prisma(app).organizationMember.create({ data: { organizationId: orgId, userId, role } });
 }

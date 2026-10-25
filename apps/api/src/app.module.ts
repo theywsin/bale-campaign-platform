@@ -16,6 +16,8 @@ import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import { AdminModule } from "./admin/admin.module";
+import { ContactsModule } from "./contacts/contacts.module";
+import { CampaignsModule } from "./campaigns/campaigns.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { SessionGuard } from "./common/guards/session.guard";
 import { CsrfGuard } from "./common/guards/csrf.guard";
@@ -79,6 +81,8 @@ export class AppModule {
         UsersModule,
         OrganizationsModule,
         AdminModule,
+        ContactsModule,
+        CampaignsModule,
       ],
       providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },

@@ -27,6 +27,8 @@ export const baseEnvSchema = z.object({
   DATABASE_URL: z.string().url({ message: "DATABASE_URL must be a valid postgres URL" }),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
   REDIS_URL: z.string().url({ message: "REDIS_URL must be a valid redis URL" }),
+  /** Allows the test-only mock messaging provider. Keep false in production. */
+  MESSAGING_MOCK_ENABLED: booleanFlag(false),
 });
 
 export class EnvValidationError extends Error {
