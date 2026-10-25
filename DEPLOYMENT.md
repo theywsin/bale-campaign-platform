@@ -30,6 +30,7 @@ HTTPS_BIND=0.0.0.0
 HTTPS_PORT=443
 TLS_CERT_DIR=/etc/letsencrypt/live/panel.example.com
 SMTP_URL=smtps://user:pass@smtp.example.com:465
+CREDENTIALS_ENCRYPTION_KEY=<openssl rand -base64 32>
 MAIL_FROM="بله‌کمپین <no-reply@example.com>"
 ```
 

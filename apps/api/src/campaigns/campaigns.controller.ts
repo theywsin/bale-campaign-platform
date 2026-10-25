@@ -2,8 +2,10 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPi
 import { ApiTags } from "@nestjs/swagger";
 import { z } from "zod";
 import {
+  createBaleBotAccountSchema,
   createCampaignSchema,
   createMockAccountSchema,
+  rotateBotTokenSchema,
   paginationQuerySchema,
   recipientQuerySchema,
   startCampaignSchema,
@@ -26,7 +28,40 @@ export class MessagingAccountsController {
   @Get()
   @RequireOrgPermission("messaging-accounts:read")
   async list(@CurrentOrg() ctx: OrgContext) {
-    return { mockEnabled: this.accounts.mockEnabled, items: await this.accounts.list(ctx) };
+    return { mockEnabled: this.accounts.mockEnabled, baleEnabled: this.accounts.baleEnabled, items: await this.accounts.list(ctx) };
+  }
+
+  /** Verifies the token with Bale getMe, then stores it encrypted. The token is never returned. */
+  @Post("bale-bot")
+  @RequireOrgPermission("messaging-accounts:write")
+  @ApiZodBody(createBaleBotAccountSchema)
+  createBaleBot(
+    @CurrentOrg() ctx: OrgContext,
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(createBaleBotAccountSchema)) body: z.infer<typeof createBaleBotAccountSchema>,
+    @Req() req: AppRequest,
+  ) {
+    return this.accounts.createBaleBot(ctx, user, body, clientInfo(req));
+  }
+
+  @Post(":accountId/check")
+  @RequireOrgPermission("messaging-accounts:write")
+  @HttpCode(HttpStatus.OK)
+  check(@CurrentOrg() ctx: OrgContext, @Param("accountId", uuid) id: string) {
+    return this.accounts.check(ctx, id);
+  }
+
+  @Put(":accountId/token")
+  @RequireOrgPermission("messaging-accounts:write")
+  @ApiZodBody(rotateBotTokenSchema)
+  rotateToken(
+    @CurrentOrg() ctx: OrgContext,
+    @CurrentUser() user: AuthUser,
+    @Param("accountId", uuid) id: string,
+    @Body(new ZodValidationPipe(rotateBotTokenSchema)) body: z.infer<typeof rotateBotTokenSchema>,
+    @Req() req: AppRequest,
+  ) {
+    return this.accounts.rotateToken(ctx, user, id, body.token, clientInfo(req));
   }
 
   /** Test-only provider: never sends real messages. */

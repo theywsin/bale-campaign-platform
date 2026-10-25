@@ -126,6 +126,9 @@ export interface MessagingAccountInfo {
   displayName: string;
   status: "ACTIVE" | "DISABLED";
   rateLimitPerMinute: number;
+  /** e.g. the bot's @username; never a secret. */
+  externalName: string | null;
+  lastCheckedAt: string | null;
   /** True for the test-only mock provider; the UI must label it. */
   isTestOnly: boolean;
   createdAt: string;

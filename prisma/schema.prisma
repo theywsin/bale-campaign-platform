@@ -367,6 +367,9 @@ model MessagingAccount {
   status               MessagingAccountStatus @default(ACTIVE)
   /// AES-256-GCM ciphertext of the provider credentials; the key lives outside the database. Never returned by the API.
   credentialsEncrypted String?                @map("credentials_encrypted") @db.Text
+  /// Public identity reported by the provider (e.g. the bot's @username). Not a secret.
+  externalName         String?                @map("external_name") @db.VarChar(100)
+  lastCheckedAt        DateTime?              @map("last_checked_at") @db.Timestamptz(3)
   rateLimitPerMinute   Int                    @default(20) @map("rate_limit_per_minute")
   createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)

@@ -65,8 +65,11 @@
 | POST | `/organizations/:orgId/lists/:id/members` و `/members/remove` | `contacts:write` | `{contactIds: uuid[≤500]}` |
 | GET/POST | `/organizations/:orgId/suppressions` | `contacts:read` / `contacts:write` | فهرست عدم ارسال |
 | DELETE | `/organizations/:orgId/suppressions/:id` | `contacts:write` | حذف |
-| GET | `/organizations/:orgId/messaging-accounts` | `messaging-accounts:read` | `{mockEnabled, items}`؛ اعتبارنامه هرگز برنمی‌گردد |
+| GET | `/organizations/:orgId/messaging-accounts` | `messaging-accounts:read` | `{mockEnabled, baleEnabled, items}`؛ اعتبارنامه هرگز برنمی‌گردد |
 | POST | `/organizations/:orgId/messaging-accounts/mock` | `messaging-accounts:write` | حساب آزمایشی؛ فقط اگر `MESSAGING_MOCK_ENABLED=true` |
+| POST | `/organizations/:orgId/messaging-accounts/bale-bot` | `messaging-accounts:write` | `{displayName, token, rateLimitPerMinute?}`؛ بررسی با getMe؛ توکن نامعتبر ۴۰۰، بله در دسترس نیست یا کلید تنظیم نشده ۵۰۳ |
+| POST | `/organizations/:orgId/messaging-accounts/:id/check` | `messaging-accounts:write` | بررسی دوباره اتصال |
+| PUT | `/organizations/:orgId/messaging-accounts/:id/token` | `messaging-accounts:write` | تعویض توکن (پس از بررسی) |
 | PUT | `/organizations/:orgId/messaging-accounts/:id/status` | `messaging-accounts:write` | فعال / غیرفعال |
 | DELETE | `/organizations/:orgId/messaging-accounts/:id` | `messaging-accounts:write` | اگر در کمپین فعال نباشد |
 | GET/POST | `/organizations/:orgId/campaigns` | `campaigns:read` / `campaigns:write` | فهرست با شمارش وضعیت‌ها / ایجاد پیش‌نویس |

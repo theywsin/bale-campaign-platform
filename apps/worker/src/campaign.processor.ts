@@ -1,30 +1,21 @@
 import type { PrismaClient } from "@bcp/database";
-import { dispatchCampaign, type AccountForSend } from "@bcp/engine";
-import { MockMessagingProvider, type MessagingProvider } from "@bcp/messaging";
+import { dispatchCampaign, providerResolver, type ProviderOptions } from "@bcp/engine";
 import { CAMPAIGN_QUEUE } from "@bcp/shared";
 import { Queue, Worker } from "bullmq";
 import type { Redis } from "ioredis";
 import type { Logger } from "pino";
 
-export interface CampaignWorkerOptions {
+export interface CampaignWorkerOptions extends ProviderOptions {
   connection: Redis;
   prisma: PrismaClient;
   log: Logger;
   concurrency: number;
-  mockEnabled: boolean;
 }
 
 /** Consumes `{ campaignId }` jobs; each job sends what is currently due for that campaign. */
 export function startCampaignWorker(opts: CampaignWorkerOptions): { close(): Promise<void> } {
   const queue = new Queue(CAMPAIGN_QUEUE, { connection: opts.connection });
-  const mock = new MockMessagingProvider();
-
-  const providerFor = (account: AccountForSend): MessagingProvider | { unavailable: string } => {
-    if (account.provider === "MOCK") {
-      return opts.mockEnabled ? mock : { unavailable: "حساب آزمایشی (Mock) در این استقرار غیرفعال است." };
-    }
-    return { unavailable: "اتصال بازوی بله هنوز پیاده‌سازی نشده است (فاز D)." };
-  };
+  const providerFor = providerResolver(opts);
 
   const worker = new Worker<{ campaignId: string }>(
     CAMPAIGN_QUEUE,

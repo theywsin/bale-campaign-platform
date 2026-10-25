@@ -48,6 +48,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "messaging_account.enabled": "فعال‌کردن حساب پیام‌رسان",
   "messaging_account.disabled": "غیرفعال‌کردن حساب پیام‌رسان",
   "messaging_account.deleted": "حذف حساب پیام‌رسان",
+  "messaging_account.token_rotated": "تعویض توکن بازو",
   "campaign.created": "ایجاد کمپین",
   "campaign.updated": "ویرایش کمپین",
   "campaign.deleted": "حذف کمپین",

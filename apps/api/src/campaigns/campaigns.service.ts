@@ -158,8 +158,8 @@ export class CampaignsService {
     if (account.provider === "MOCK" && !this.env.MESSAGING_MOCK_ENABLED) {
       throw AppException.forbidden("حساب آزمایشی (Mock) در این استقرار غیرفعال است.");
     }
-    if (account.provider === "BALE_BOT") {
-      throw AppException.conflict("ارسال از طریق بازوی بله هنوز فعال نشده است (فاز D).");
+    if (account.provider === "BALE_BOT" && (!account.credentialsEncrypted || !this.env.CREDENTIALS_ENCRYPTION_KEY)) {
+      throw AppException.conflict("حساب بازوی بله توکن معتبر ندارد یا اتصال بله در این استقرار پیکربندی نشده است.");
     }
     const target: CampaignStatus = scheduledAt && scheduledAt.getTime() > Date.now() ? "SCHEDULED" : "QUEUED";
 

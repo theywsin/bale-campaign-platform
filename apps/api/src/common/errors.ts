@@ -45,6 +45,10 @@ export class AppException extends Error {
     return new AppException(HttpStatus.CONFLICT, "CONFLICT", message);
   }
 
+  static unavailable(message: string): AppException {
+    return new AppException(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", message);
+  }
+
   static validation(message: string, fieldErrors?: Record<string, string[]>): AppException {
     return new AppException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", message, fieldErrors);
   }
