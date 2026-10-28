@@ -6,6 +6,10 @@ import {
   loginSchema,
   registerSchema,
   resetPasswordSchema,
+  mfaLoginSchema,
+  totpConfirmSchema,
+  totpDisableSchema,
+  type LoginResponse,
   verifyEmailSchema,
   type MeResponse,
 } from "@bcp/shared";
@@ -19,6 +23,8 @@ import { clearSessionCookie, CSRF_COOKIE, setCsrfCookie, setSessionCookie } from
 import { generateToken } from "../common/security/tokens";
 import { rateLimits } from "../common/rate-limits";
 import { AuthService } from "./auth.service";
+import { MfaService } from "./mfa.service";
+import type { z } from "zod";
 import { MeService } from "./me.service";
 
 /** Stricter per-IP limit for unauthenticated, abuse-prone endpoints. */
@@ -31,6 +37,7 @@ export class AuthController {
     @Inject(API_ENV) private readonly env: ApiEnv,
     private readonly auth: AuthService,
     private readonly me: MeService,
+    private readonly mfa: MfaService,
   ) {}
 
   @Public()
@@ -66,10 +73,58 @@ export class AuthController {
     @Body(new ZodValidationPipe(loginSchema)) body: ReturnType<typeof loginSchema.parse>,
     @Req() req: AppRequest,
     @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponse> {
+    const result = await this.auth.login(body, clientInfo(req));
+    if (result.mfaToken !== undefined) return { mfaRequired: true, mfaToken: result.mfaToken };
+    setSessionCookie(res, this.env, result.session!.token, result.session!.expiresAt);
+    return this.me.forSession(result.session!.sessionId);
+  }
+
+  /** Second step for accounts with 2FA: the token from /login plus a TOTP or recovery code. */
+  @Post("login/mfa")
+  @Public()
+  @Throttle(STRICT)
+  @HttpCode(HttpStatus.OK)
+  @ApiZodBody(mfaLoginSchema)
+  async loginMfa(
+    @Body(new ZodValidationPipe(mfaLoginSchema)) body: z.infer<typeof mfaLoginSchema>,
+    @Req() req: AppRequest,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<MeResponse> {
-    const session = await this.auth.login(body, clientInfo(req));
+    const session = await this.auth.loginWithMfa(body.mfaToken, body.code, clientInfo(req));
     setSessionCookie(res, this.env, session.token, session.expiresAt);
     return this.me.forSession(session.sessionId);
+  }
+
+  @Get("mfa")
+  async mfaStatus(@CurrentUser() user: AuthUser) {
+    return { available: this.mfa.available, enabled: user.mfaEnabled, recoveryCodesLeft: user.mfaEnabled ? await this.mfa.remainingRecoveryCodes(user.id) : 0 };
+  }
+
+  /** The secret is returned once, for the authenticator app; it is stored encrypted. */
+  @Post("mfa/setup")
+  @HttpCode(HttpStatus.OK)
+  mfaSetup(@CurrentUser() user: AuthUser) {
+    return this.mfa.setup(user);
+  }
+
+  @Post("mfa/confirm")
+  @HttpCode(HttpStatus.OK)
+  @ApiZodBody(totpConfirmSchema)
+  mfaConfirm(
+    @CurrentUser() user: AuthUser,
+    @CurrentSessionId() sessionId: string,
+    @Body(new ZodValidationPipe(totpConfirmSchema)) body: z.infer<typeof totpConfirmSchema>,
+    @Req() req: AppRequest,
+  ) {
+    return this.mfa.confirm(user, sessionId, body.code, clientInfo(req));
+  }
+
+  @Post("mfa/disable")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiZodBody(totpDisableSchema)
+  async mfaDisable(@CurrentUser() user: AuthUser, @Body(new ZodValidationPipe(totpDisableSchema)) body: z.infer<typeof totpDisableSchema>, @Req() req: AppRequest) {
+    await this.mfa.disable(user, body.password, body.code, clientInfo(req));
   }
 
   @Post("logout")

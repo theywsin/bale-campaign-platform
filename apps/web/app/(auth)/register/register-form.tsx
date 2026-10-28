@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { api } from "@/lib/api";
 import { ME_KEY, safeNext } from "@/lib/session";
+import { usePublicSettings } from "@/components/panel/announcement";
 
 type FormInput = z.input<typeof registerSchema>;
 
@@ -40,6 +41,20 @@ export function RegisterForm() {
   });
 
   const { errors, isSubmitting } = form.formState;
+  const settings = usePublicSettings();
+  if (settings.data && !settings.data.registrationEnabled) {
+    return (
+      <div className="mt-6 space-y-4">
+        <Alert tone="info" title="ثبت‌نام موقتاً بسته است">
+          در حال حاضر حساب جدید ساخته نمی‌شود. اگر دعوت‌نامه دارید یا قبلاً ثبت‌نام کرده‌اید، وارد شوید.
+          {settings.data.supportEmail && (
+            <> برای اطلاعات بیشتر: <a className="ltr inline-block underline" href={`mailto:${settings.data.supportEmail}`}>{settings.data.supportEmail}</a></>
+          )}
+        </Alert>
+        <Link href="/login" className="block text-center font-medium text-brand-700 hover:underline">ورود به حساب</Link>
+      </div>
+    );
+  }
   return (
     <form onSubmit={onSubmit} noValidate className="mt-6 space-y-4">
       {error && <Alert tone="error">{error}</Alert>}

@@ -29,15 +29,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ...(can("admin:subscriptions:read") ? [{ href: "/admin/subscriptions", label: "اشتراک‌ها", Icon: CreditCard }] : []),
           ...(can("admin:licenses:write") ? [{ href: "/admin/licenses", label: "لایسنس‌ها", Icon: KeyRound }] : []),
           ...(can("admin:payments:read") ? [{ href: "/admin/payments", label: "سفارش‌ها و پرداخت‌ها", Icon: Receipt }] : []),
-          { href: "/admin/reported-campaigns", label: "کمپین‌های گزارش‌شده", Icon: Flag, soon: true },
-          { href: "/admin/providers", label: "وضعیت اتصال ارائه‌دهنده", Icon: Plug, soon: true },
-          { href: "/admin/tickets", label: "تیکت‌ها", Icon: LifeBuoy, soon: true },
+          ...(can("admin:campaigns:moderate") ? [{ href: "/admin/campaigns", label: "پایش کمپین‌ها", Icon: Flag }] : []),
+          { href: "/admin/providers", label: "وضعیت اتصال ارائه‌دهنده", Icon: Plug },
+          ...(can("admin:tickets:read") ? [{ href: "/admin/tickets", label: "تیکت‌ها", Icon: LifeBuoy }] : []),
           ...(can("admin:audit:read") ? [{ href: "/admin/audit-logs", label: "گزارش ممیزی", Icon: ScrollText }] : []),
-          { href: "/admin/settings", label: "تنظیمات سامانه", Icon: Settings, soon: true },
+          ...(can("admin:settings:write") ? [{ href: "/admin/settings", label: "تنظیمات سامانه", Icon: Settings }] : []),
           { href: "/app", label: "بازگشت به پنل مشتری", Icon: ArrowRight },
         ];
         return (
           <PanelShell me={me} nav={nav} title="منوی مدیریت" headerExtra={<span className="font-bold text-slate-900">پنل مدیریت سامانه</span>}>
+            {!me.user.mfaEnabled && (
+              <Alert tone="warning" className="mb-4" title="ورود دومرحله‌ای برای حساب شما فعال نیست">
+                دسترسی به پنل مدیریت بدون ورود دومرحله‌ای ممکن است محدود شود. آن را از{" "}
+                <Link href={me.organizations[0] ? `/app/${me.organizations[0].id}/account` : "/app"} className="font-medium underline">پروفایل و امنیت</Link>{" "}
+                فعال کنید.
+              </Alert>
+            )}
             {children}
           </PanelShell>
         );

@@ -23,6 +23,8 @@ export interface CurrentUser {
   fullName: string;
   emailVerified: boolean;
   platformRole: PlatformRole | null;
+  /** Two-factor authentication is on. */
+  mfaEnabled: boolean;
   createdAt: string;
 }
 
@@ -38,6 +40,9 @@ export interface MeResponse {
   user: CurrentUser;
   organizations: OrganizationSummary[];
 }
+
+/** /auth/login returns the session's MeResponse, or a challenge when the account has 2FA. */
+export type LoginResponse = MeResponse | { mfaRequired: true; mfaToken: string };
 
 export interface SessionInfo {
   id: string;
@@ -224,4 +229,36 @@ export interface CheckoutResult {
   order: OrderInfo;
   /** Path in this panel (mock) or gateway URL to continue payment; null when nothing is due. */
   redirectUrl: string | null;
+}
+
+export interface TicketSummary {
+  id: string;
+  subject: string;
+  category: "TECHNICAL" | "BILLING" | "ACCOUNT" | "OTHER";
+  priority: "LOW" | "NORMAL" | "HIGH";
+  status: "OPEN" | "ANSWERED" | "CLOSED";
+  lastMessageAt: string;
+  createdAt: string;
+  createdBy: string | null;
+  organization: { id: string; name: string };
+  messageCount: number;
+}
+
+export interface TicketMessageInfo {
+  id: string;
+  body: string;
+  fromStaff: boolean;
+  /** Customer messages show the member's name; staff messages show «پشتیبانی» to customers. */
+  authorName: string | null;
+  createdAt: string;
+}
+
+export interface TicketDetail extends TicketSummary {
+  messages: TicketMessageInfo[];
+}
+
+export interface PublicSettings {
+  registrationEnabled: boolean;
+  announcement: string | null;
+  supportEmail: string | null;
 }

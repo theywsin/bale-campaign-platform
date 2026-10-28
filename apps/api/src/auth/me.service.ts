@@ -20,6 +20,7 @@ export class MeService {
         email: true,
         fullName: true,
         emailVerifiedAt: true,
+        totpEnabledAt: true,
         platformRole: true,
         createdAt: true,
         memberships: {
@@ -36,6 +37,7 @@ export class MeService {
         fullName: user.fullName,
         emailVerified: user.emailVerifiedAt !== null,
         platformRole: (user.platformRole as PlatformRole | null) ?? null,
+        mfaEnabled: user.totpEnabledAt !== null,
         createdAt: user.createdAt.toISOString(),
       },
       organizations: user.memberships.map((m) => ({

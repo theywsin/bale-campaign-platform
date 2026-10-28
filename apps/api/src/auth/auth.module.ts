@@ -1,3 +1,4 @@
+import { MfaService } from "./mfa.service";
 import { Global, Module } from "@nestjs/common";
 import { PasswordService } from "../common/security/password.service";
 import { AuthController } from "./auth.controller";
@@ -9,7 +10,7 @@ import { SessionService } from "./session.service";
 @Global()
 @Module({
   controllers: [AuthController],
-  providers: [AuthService, SessionService, LoginRateLimiter, PasswordService, MeService],
-  exports: [AuthService, SessionService, PasswordService, MeService],
+  providers: [MfaService, AuthService, SessionService, LoginRateLimiter, PasswordService, MeService],
+  exports: [MfaService, AuthService, SessionService, PasswordService, MeService],
 })
 export class AuthModule {}

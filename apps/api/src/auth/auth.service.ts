@@ -8,6 +8,8 @@ import type {
 import { Prisma } from "@bcp/database";
 import { randomBytes } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
+import { SettingsService } from "../settings/settings.service";
+import { MfaService } from "./mfa.service";
 import { AuditService } from "../audit/audit.service";
 import { MailService } from "../mail/mail.service";
 import { PasswordService } from "../common/security/password.service";
@@ -33,10 +35,15 @@ export class AuthService {
     private readonly limiter: LoginRateLimiter,
     private readonly audit: AuditService,
     private readonly mail: MailService,
+    private readonly settings: SettingsService,
+    private readonly mfa: MfaService,
   ) {}
 
   /** Creates the user and their first workspace (as owner) atomically, then signs them in. */
   async register(input: RegisterInput, client: ClientInfo) {
+    if (!(await this.settings.get()).registrationEnabled) {
+      throw AppException.forbidden("ثبت‌نام جدید در حال حاضر بسته است.");
+    }
     const passwordHash = await this.passwords.hash(input.password);
     let userId: string;
     try {
@@ -99,11 +106,26 @@ export class AuthService {
     }
 
     await this.limiter.reset(input.email);
-    const data: Prisma.UserUpdateInput = { lastLoginAt: new Date() };
-    if (this.passwords.needsRehash(user.passwordHash)) data.passwordHash = await this.passwords.hash(input.password);
-    await this.prisma.client.user.update({ where: { id: user.id }, data });
-    const session = await this.sessions.create(user.id, client);
-    await this.audit.record({ category: "SECURITY", action: "auth.login.success", actorUserId: user.id, targetType: "session", targetId: session.sessionId, client });
+    if (this.passwords.needsRehash(user.passwordHash)) {
+      await this.prisma.client.user.update({ where: { id: user.id }, data: { passwordHash: await this.passwords.hash(input.password) } });
+    }
+    if (user.totpEnabledAt) {
+      // The password was right; the session is issued only after the second factor.
+      await this.audit.record({ category: "SECURITY", action: "auth.login.mfa_required", actorUserId: user.id, client });
+      return { mfaToken: await this.mfa.createChallenge(user.id) } as const;
+    }
+    return { session: await this.startSession(user.id, client) };
+  }
+
+  async loginWithMfa(mfaToken: string, code: string, client: ClientInfo) {
+    const userId = await this.mfa.completeChallenge(mfaToken, code, client);
+    return this.startSession(userId, client);
+  }
+
+  private async startSession(userId: string, client: ClientInfo) {
+    await this.prisma.client.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
+    const session = await this.sessions.create(userId, client);
+    await this.audit.record({ category: "SECURITY", action: "auth.login.success", actorUserId: userId, targetType: "session", targetId: session.sessionId, client });
     return session;
   }
 

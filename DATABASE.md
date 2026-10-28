@@ -51,6 +51,15 @@ PostgreSQL 17، Prisma 7 (با driver adapter `@prisma/adapter-pg`). اسکیم�
 
 مدل‌های فاز F (مثل SupportTicket) با migrationهای جدید اضافه می‌شوند.
 
+## جدول‌ها (فاز G)
+
+| جدول | توضیح |
+|---|---|
+| `support_tickets` | تیکت هر سازمان؛ وضعیت OPEN/ANSWERED/CLOSED، اولویت، دسته، `last_message_at` |
+| `support_ticket_messages` | پیام‌ها با `from_staff`؛ حداکثر ۵۰۰۰ کاراکتر |
+| `user_recovery_codes` | هش کدهای بازیابی ۲FA و زمان مصرف |
+| `users.totp_secret_encrypted`، `users.totp_enabled_at` | راز TOTP رمزنگاری‌شده با کلید بیرون از پایگاه داده |
+
 ## Migrationها
 
 | Migration | محتوا |

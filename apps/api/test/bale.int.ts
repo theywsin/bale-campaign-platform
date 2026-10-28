@@ -106,7 +106,7 @@ describe("Bale bot accounts (against a local fake Bale API)", () => {
     const port = (tmp.address() as AddressInfo).port;
     await new Promise((r) => tmp.close(r));
     const offline = await createTestApp({ CREDENTIALS_ENCRYPTION_KEY: KEY, BALE_API_BASE_URL: `http://127.0.0.1:${port}` });
-    const noKey = await createTestApp({ BALE_API_BASE_URL: base });
+    const noKey = await createTestApp({ BALE_API_BASE_URL: base, CREDENTIALS_ENCRYPTION_KEY: "" });
     try {
       const a = await registerUser(offline);
       await a.client.post(`/organizations/${a.orgId}/messaging-accounts/bale-bot`, { displayName: "بازو", token: TOKEN }).expect(503);

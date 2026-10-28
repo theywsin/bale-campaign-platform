@@ -7,6 +7,7 @@ export interface AuthUser {
   fullName: string;
   platformRole: PlatformRole | null;
   emailVerified: boolean;
+  mfaEnabled: boolean;
   createdAt: Date;
 }
 

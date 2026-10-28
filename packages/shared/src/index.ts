@@ -4,4 +4,5 @@ export * from "./phone";
 export * from "./campaign";
 export * from "./schemas";
 export * from "./billing";
+export * from "./support";
 export * from "./api-types";

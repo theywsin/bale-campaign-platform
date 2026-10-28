@@ -20,6 +20,8 @@ import { ContactsModule } from "./contacts/contacts.module";
 import { CampaignsModule } from "./campaigns/campaigns.module";
 import { EntitlementsModule } from "./billing/entitlements.service";
 import { BillingModule } from "./billing/billing.module";
+import { SupportModule } from "./support/support.module";
+import { SettingsModule } from "./settings/settings.service";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { SessionGuard } from "./common/guards/session.guard";
 import { CsrfGuard } from "./common/guards/csrf.guard";
@@ -78,6 +80,7 @@ export class AppModule {
         RedisModule,
         AuditModule,
         EntitlementsModule,
+        SettingsModule,
         MailModule,
         HealthModule,
         AuthModule,
@@ -87,6 +90,7 @@ export class AppModule {
         ContactsModule,
         CampaignsModule,
         BillingModule,
+        SupportModule,
       ],
       providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },

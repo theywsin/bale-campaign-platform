@@ -17,6 +17,9 @@ export function testEnvSource(overrides: Record<string, string> = {}): NodeJS.Pr
     SMTP_URL: "smtp://localhost:2525",
     MESSAGING_MOCK_ENABLED: "true",
     PAYMENTS_MOCK_ENABLED: "true",
+    ADMIN_MFA_REQUIRED: "false",
+    // Test-only key (not secret): 2FA secrets need the credentials cipher.
+    CREDENTIALS_ENCRYPTION_KEY: "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
     PAYMENT_WEBHOOK_SECRET: "test-only-webhook-secret-0123456789abcdef",
     ...overrides,
   };
