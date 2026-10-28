@@ -18,6 +18,8 @@ import { OrganizationsModule } from "./organizations/organizations.module";
 import { AdminModule } from "./admin/admin.module";
 import { ContactsModule } from "./contacts/contacts.module";
 import { CampaignsModule } from "./campaigns/campaigns.module";
+import { EntitlementsModule } from "./billing/entitlements.service";
+import { BillingModule } from "./billing/billing.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { SessionGuard } from "./common/guards/session.guard";
 import { CsrfGuard } from "./common/guards/csrf.guard";
@@ -75,6 +77,7 @@ export class AppModule {
         PrismaModule,
         RedisModule,
         AuditModule,
+        EntitlementsModule,
         MailModule,
         HealthModule,
         AuthModule,
@@ -83,6 +86,7 @@ export class AppModule {
         AdminModule,
         ContactsModule,
         CampaignsModule,
+        BillingModule,
       ],
       providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },

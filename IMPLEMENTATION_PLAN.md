@@ -38,7 +38,7 @@ packages/database  Prisma Client مشترک
 packages/shared    نقش‌ها، مجوزها، اسکیماهای Zod، ماشین وضعیت‌ها
 packages/messaging قرارداد MessagingProvider، نرمال‌سازی خطا، Mock (فاز C)
 packages/engine    موتور ارسال کمپین، Outbox relay، بازیابی (فاز C)
-packages/licensing (فاز E)
+apps/api/src/billing (فاز E: پلن، پرداخت، لایسنس، محدودیت‌ها)
 prisma/          schema.prisma و migrations
 infra/           Dockerfile ها، nginx، اسکریپت بکاپ/ریستور
 tests/e2e        تست‌های Playwright
@@ -110,7 +110,7 @@ Plan، Subscription، Order، Payment (با تاریخچه وضعیت)، Webhook
 | B | ✅ انجام‌شده و تست‌شده |
 | C | ✅ انجام‌شده و تست‌شده (ارسال فقط با حساب آزمایشی Mock) |
 | D | ✅ پیاده‌سازی و تست با سرور ساختگی بله؛ ⚠️ با بازوی واقعی تأیید نشده (`tapi.bale.ai` در دسترس نبود) |
-| E | شروع‌نشده |
+| E | ✅ انجام‌شده و تست‌شده با درگاه آزمایشی؛ ⚠️ درگاه بانکی واقعی متصل نشده (درگاهی مشخص نشده است) |
 | F | شروع‌نشده |
 
 ## نتایج تست فاز D (۲۰۲۶-۱۰-۲۵)

@@ -45,7 +45,7 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
           { href: `${base}/suppressions`, label: "فهرست عدم ارسال", Icon: Ban },
           { href: `${base}/campaigns`, label: "کمپین‌ها", Icon: Megaphone },
           { href: `${base}/messaging-accounts`, label: "حساب‌های پیام‌رسان", Icon: MessagesSquare },
-          { href: `${base}/billing`, label: "اشتراک و پرداخت", Icon: CreditCard, soon: true },
+          { href: `${base}/billing`, label: "اشتراک و پرداخت", Icon: CreditCard },
           { href: `${base}/support`, label: "تیکت پشتیبانی", Icon: LifeBuoy, soon: true },
           { href: `${base}/members`, label: "اعضا و نقش‌ها", Icon: UserCog },
           ...(canManage ? [{ href: `${base}/settings`, label: "تنظیمات فضای کاری", Icon: Settings }] : []),

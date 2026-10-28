@@ -16,6 +16,8 @@ export function testEnvSource(overrides: Record<string, string> = {}): NodeJS.Pr
     // A syntactically valid SMTP URL enables the e-mail queue; tests read jobs from it, nothing is sent.
     SMTP_URL: "smtp://localhost:2525",
     MESSAGING_MOCK_ENABLED: "true",
+    PAYMENTS_MOCK_ENABLED: "true",
+    PAYMENT_WEBHOOK_SECRET: "test-only-webhook-secret-0123456789abcdef",
     ...overrides,
   };
 }

@@ -37,7 +37,19 @@ PostgreSQL 17، Prisma 7 (با driver adapter `@prisma/adapter-pg`). اسکیم�
 | `message_attempts` | هر فراخوانی ارائه‌دهنده؛ **پیش از** فراخوانی ساخته می‌شود | `(recipient_id, attempt_no)` unique |
 | `outbox_events` | Transactional Outbox | `(status, available_at)` |
 
-مدل‌های فاز D و E (Plan، Subscription، License، Payment، WebhookEvent، SupportTicket و ...) با migrationهای جدید اضافه می‌شوند.
+## جدول‌ها (فاز E)
+
+| جدول | توضیح | قیود و ایندکس‌های مهم |
+|---|---|---|
+| `plans` | پلن؛ `price_rials` (BigInt)، `period_days`، سقف‌ها (null = نامحدود)، `is_public`، `is_active`، `is_default` (پلن پایه برای سازمان بدون اشتراک) | `code` unique؛ حداکثر یک پلن پایه (ایندکس جزئی)؛ CHECK قیمت ≥ ۰ و مدت > ۰ |
+| `subscriptions` | اشتراک سازمان؛ `source` = PAYMENT / LICENSE / ADMIN؛ فقط تا `ends_at` معتبر است | حداکثر یک `ACTIVE` برای هر سازمان (ایندکس جزئی)؛ `(status, ends_at)` |
+| `orders` | سفارش؛ مبلغ و مدت هنگام ایجاد snapshot می‌شود | `(organization_id, created_at desc)`؛ CHECK مبلغ ≥ ۰ |
+| `payments` | پرداخت؛ `provider_ref` مرجع درگاه | `(provider, provider_ref)` unique |
+| `payment_status_history` | هر تغییر وضعیت پرداخت (فقط افزودنی) | `(payment_id, created_at)` |
+| `webhook_events` | callbackهای درگاه | `(provider, event_id)` unique ⇒ پردازش یک‌باره |
+| `licenses` | کلید لایسنس؛ فقط SHA-256 کلید و ۸ نویسه اول آن ذخیره می‌شود | `key_hash` unique |
+
+مدل‌های فاز F (مثل SupportTicket) با migrationهای جدید اضافه می‌شوند.
 
 ## Migrationها
 
@@ -48,6 +60,7 @@ PostgreSQL 17، Prisma 7 (با driver adapter `@prisma/adapter-pg`). اسکیم�
 | `20261025121000_audit_log_allow_org_set_null` | اجازه به `ON DELETE SET NULL` روی audit در حذف سخت سازمان |
 | `20261025161242_messaging_account_identity` | `external_name` (نام کاربری بازو) و `last_checked_at` در `messaging_accounts` |
 | `20261025130617_contacts_and_campaigns` | مخاطبان، فهرست‌ها، عدم ارسال، ورود CSV، حساب پیام‌رسان، کمپین، گیرنده، تلاش ارسال، outbox |
+| `20261028093551_billing_and_licenses` | پلن، اشتراک، سفارش، پرداخت و تاریخچه، وب‌هوک، لایسنس؛ ایندکس‌های جزئی و CHECKها |
 
 دستورها:
 
@@ -67,6 +80,9 @@ docker compose run --rm migrate           # در استقرار Docker
 - `audit_logs` قابل UPDATE نیست؛ پاک‌سازی بر اساس سیاست نگهداری فقط با DELETE توسط اپراتور انجام می‌شود.
 
 ## تراکنش‌ها و هم‌زمانی
+
+- **وب‌هوک پرداخت:** درج `webhook_events` و اثر آن (پرداخت، تاریخچه، سفارش، اشتراک) در یک تراکنش است؛ تکرار همان رویداد با unique رد می‌شود و رویدادی که پردازشش شکست بخورد چیزی باقی نمی‌گذارد تا تلاش بعدی درگاه پردازش شود. ردیف پرداخت با `FOR UPDATE` قفل می‌شود و وضعیت نهایی (SUCCEEDED/FAILED/CANCELED) دیگر تغییر نمی‌کند.
+- **اعطای اشتراک:** ردیف سازمان با `FOR UPDATE` قفل می‌شود؛ تمدید همان پلن تاریخ پایان را جلو می‌برد، پلن دیگر اشتراک قبلی را می‌بندد (بدون محاسبه مبلغ باقی‌مانده).
 
 - ثبت‌نام (کاربر + سازمان + عضویت + audit) در یک تراکنش.
 - مصرف توکن‌ها با `UPDATE ... WHERE used_at IS NULL RETURNING` اتمیک است؛ دو درخواست هم‌زمان نمی‌توانند یک توکن را دو بار مصرف کنند.

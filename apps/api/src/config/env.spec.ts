@@ -18,6 +18,13 @@ describe("API environment", () => {
     expect(() => loadApiEnv({ ...base, NODE_ENV: "production", COOKIE_SECURE: "false" })).toThrow(EnvValidationError);
   });
 
+  it("requires a strong webhook secret when the mock payment gateway is on", () => {
+    expect(loadApiEnv(base).PAYMENTS_MOCK_ENABLED).toBe(false);
+    expect(() => loadApiEnv({ ...base, PAYMENTS_MOCK_ENABLED: "true" })).toThrow(EnvValidationError);
+    expect(() => loadApiEnv({ ...base, PAYMENTS_MOCK_ENABLED: "true", PAYMENT_WEBHOOK_SECRET: "short" })).toThrow(EnvValidationError);
+    expect(loadApiEnv({ ...base, PAYMENTS_MOCK_ENABLED: "true", PAYMENT_WEBHOOK_SECRET: "x".repeat(32) }).PAYMENTS_MOCK_ENABLED).toBe(true);
+  });
+
   it("does not echo secret values in validation errors", () => {
     try {
       loadApiEnv({ ...base, APP_URL: "not a url supersecretpw" });

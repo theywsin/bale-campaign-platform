@@ -5,6 +5,7 @@ import type { MessagingAccountInfo } from "@bcp/shared";
 import type { Prisma } from "@bcp/database";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { EntitlementsService } from "../billing/entitlements.service";
 import { API_ENV, type ApiEnv } from "../config/env";
 import { AppException } from "../common/errors";
 import type { AuthUser, ClientInfo, OrgContext } from "../common/request-context";
@@ -31,6 +32,7 @@ export class MessagingAccountsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
     @Inject(API_ENV) private readonly env: ApiEnv,
   ) {
     this.cipher = env.CREDENTIALS_ENCRYPTION_KEY ? new CredentialsCipher(env.CREDENTIALS_ENCRYPTION_KEY) : null;
@@ -79,6 +81,7 @@ export class MessagingAccountsService {
     }
     const count = await this.prisma.client.messagingAccount.count({ where: { organizationId: ctx.organizationId } });
     if (count >= MAX_ACCOUNTS_PER_ORG) throw AppException.conflict(`حداکثر ${MAX_ACCOUNTS_PER_ORG} حساب ارسال مجاز است.`);
+    await this.entitlements.assertWithin(ctx.organizationId, "maxMessagingAccounts", 1);
     return this.prisma.client.$transaction(async (tx) => {
       const a = await tx.messagingAccount.create({
         data: { organizationId: ctx.organizationId, provider: "MOCK", displayName: data.displayName, rateLimitPerMinute: data.rateLimitPerMinute },
@@ -97,6 +100,7 @@ export class MessagingAccountsService {
     const cipher = this.requireCipher();
     const count = await this.prisma.client.messagingAccount.count({ where: { organizationId: ctx.organizationId } });
     if (count >= MAX_ACCOUNTS_PER_ORG) throw AppException.conflict(`حداکثر ${MAX_ACCOUNTS_PER_ORG} حساب ارسال مجاز است.`);
+    await this.entitlements.assertWithin(ctx.organizationId, "maxMessagingAccounts", 1);
     const { username } = await this.verifyToken(data.token);
     const id = randomUUID();
     return this.prisma.client.$transaction(async (tx) => {

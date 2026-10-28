@@ -57,5 +57,16 @@ export const ACTION_LABELS: Record<string, string> = {
   "campaign.paused": "توقف کمپین",
   "campaign.resumed": "ادامه کمپین",
   "campaign.cancelled": "لغو کمپین",
+  "order.created": "ثبت سفارش",
+  "order.free_activated": "فعال‌سازی پلن رایگان",
+  "payment.succeeded": "پرداخت موفق",
+  "payment.failed": "پرداخت ناموفق",
+  "license.redeemed": "فعال‌سازی لایسنس",
+  "admin.plan.created": "ایجاد پلن",
+  "admin.plan.updated": "ویرایش پلن",
+  "admin.subscription.granted": "اعطای اشتراک",
+  "admin.subscription.canceled": "لغو اشتراک",
+  "admin.licenses.created": "ساخت کلید لایسنس",
+  "admin.license.revoked": "ابطال لایسنس",
 };
 export const actionLabel = (a: string) => ACTION_LABELS[a] ?? a;

@@ -12,6 +12,7 @@ import type {
 import { Prisma } from "@bcp/database";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { EntitlementsService } from "../billing/entitlements.service";
 import { AppException } from "../common/errors";
 import type { AuthUser, ClientInfo, OrgContext } from "../common/request-context";
 import { MAX_IMPORT_ERRORS_STORED, parseContactsCsv, toCsv, type ParsedContactRow } from "./csv";
@@ -64,6 +65,7 @@ export class ContactsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   private get db() {
@@ -103,6 +105,7 @@ export class ContactsService {
   async create(ctx: OrgContext, actor: AuthUser, data: ContactData, client: ClientInfo): Promise<ContactInfo> {
     const count = await this.db.contact.count({ where: { organizationId: ctx.organizationId } });
     if (count >= MAX_CONTACTS_PER_ORG) throw AppException.conflict("سقف تعداد مخاطبان این فضای کاری پر شده است.");
+    await this.entitlements.assertWithin(ctx.organizationId, "maxContacts", 1);
     try {
       return await this.db.$transaction(async (tx) => {
         const c = await tx.contact.create({
@@ -217,6 +220,7 @@ export class ContactsService {
     if (count + toCreate.length > MAX_CONTACTS_PER_ORG) {
       throw AppException.conflict("با این فایل سقف تعداد مخاطبان فضای کاری پر می‌شود.");
     }
+    if (toCreate.length) await this.entitlements.assertWithin(orgId, "maxContacts", toCreate.length);
 
     const sortedErrors: ImportRowError[] = errors.sort((x, y) => x.row - y.row);
     const record = await this.db.$transaction(

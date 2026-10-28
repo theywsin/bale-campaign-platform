@@ -12,6 +12,7 @@ import {
 import { Prisma } from "@bcp/database";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { EntitlementsService } from "../billing/entitlements.service";
 import { MailService } from "../mail/mail.service";
 import { newOrganizationSlug } from "../auth/auth.service";
 import { AppException } from "../common/errors";
@@ -32,6 +33,7 @@ export class OrganizationsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly mail: MailService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async create(user: AuthUser, name: string, client: ClientInfo): Promise<OrganizationSummary> {
@@ -169,6 +171,7 @@ export class OrganizationsService {
       select: { id: true },
     });
     if (existingMember) throw AppException.conflict("این کاربر از قبل عضو فضای کاری است.");
+    await this.entitlements.assertWithin(ctx.organizationId, "maxMembers", 1);
 
     const token = generateToken();
     const org = await this.prisma.client.organization.findUniqueOrThrow({ where: { id: ctx.organizationId }, select: { name: true } });

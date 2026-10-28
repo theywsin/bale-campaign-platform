@@ -115,6 +115,9 @@ services:
       SESSION_IDLE_TIMEOUT_HOURS: ${SESSION_IDLE_TIMEOUT_HOURS:-48}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
       AUTH_RATE_LIMIT_PER_MINUTE: ${AUTH_RATE_LIMIT_PER_MINUTE:-10}
+      # Test-only payment gateway (no money moves); never enable on a real deployment.
+      PAYMENTS_MOCK_ENABLED: ${PAYMENTS_MOCK_ENABLED:-false}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-}
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-}
     depends_on:
