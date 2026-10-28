@@ -22,7 +22,7 @@ after(async () => {
 });
 
 async function newPage(viewport = { width: 1280, height: 860 }) {
-  const context = await browser.newContext({ viewport, locale: "fa-IR" });
+  const context = await browser.newContext({ viewport, locale: "fa-IR", ignoreHTTPSErrors: process.env.E2E_INSECURE_TLS === "1" });
   return context.newPage();
 }
 

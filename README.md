@@ -77,6 +77,8 @@ npm run test:e2e            # E2E — API، worker، scheduler و وب (3000) ب
 - E2E در هر اجرا حدود ۱۰ حساب ثبت‌نام می‌کند؛ برای محیط تست `AUTH_RATE_LIMIT_PER_MINUTE` را بالاتر (مثلاً ۶۰) بگذارید وگرنه محدودیت ثبت‌نام (۱۰ در دقیقه برای هر IP) عمداً جلوی آن را می‌گیرد.
 - تست بازوی بله با سرور ساختگی `tests/fake-bale/server.mjs` اجرا می‌شود (`BALE_API_BASE_URL=http://127.0.0.1:4300` و `E2E_BALE_TOKEN=123456:local_test_token`).
 - تست E2E فروش (`billing.e2e.test.mjs`) به `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD` و `PAYMENTS_MOCK_ENABLED=true` نیاز دارد و پلن‌های ساخته‌شده را در پایان غیرفعال می‌کند.
+- تست بار: `LOAD_BASE_URL=http://localhost:4000 node tests/load/load.mjs` (فقط روی محیط آزمایشی؛ جزئیات و نتایج در [RELEASE.md](RELEASE.md)).
+- E2E روی HTTPS با گواهی خودامضا: `E2E_INSECURE_TLS=1 E2E_BASE_URL=https://localhost:8443 npm run test:e2e`.
 - هیچ تستی پیام واقعی ارسال نمی‌کند و ایمیل‌ها در تست فقط در صف قرار می‌گیرند.
 
 ## اجرای کامل با Docker Compose
@@ -121,6 +123,9 @@ curl http://127.0.0.1:8080/api/v1/health/ready
 | `PAYMENTS_MOCK_ENABLED` / `PAYMENT_WEBHOOK_SECRET` | درگاه پرداخت آزمایشی (هیچ پولی جابه‌جا نمی‌شود)؛ پیش‌فرض خاموش؛ با روشن‌کردن آن رمز وب‌هوک حداقل ۳۲ نویسه لازم است (`openssl rand -hex 32`). بدون درگاه، فقط پلن رایگان، کلید لایسنس و اعطای دستی کار می‌کند |
 
 ## آنچه هنوز برای انتشار عمومی آماده نیست
+
+فهرست کامل و گام‌های روز انتشار: [RELEASE.md](RELEASE.md).
+
 
 - تأیید اتصال بله با بازوی واقعی — `tapi.bale.ai` از محیط توسعه در دسترس نبود و هیچ ارسال واقعی انجام نشده است
 - اتصال به درگاه پرداخت بانکی واقعی — فقط درگاه آزمایشی پیاده‌سازی شده است؛ فروش واقعی فعلاً با کلید لایسنس یا اعطای دستی اشتراک ممکن است
