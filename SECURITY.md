@@ -32,6 +32,9 @@
 | حساب آزمایشی | `MOCK` فقط با `MESSAGING_MOCK_ENABLED=true` (پیش‌فرض false و در compose خاموش)؛ در UI با برچسب «آزمایشی» | `campaigns.int.ts` |
 | ارسال تکراری | UNKNOWN هرگز خودکار تکرار نمی‌شود؛ عدم ارسال/انصراف پیش از هر ارسال دوباره بررسی می‌شود | `campaigns.int.ts` |
 | توکن بازوی بله (فاز D) | AES-256-GCM با کلید env (`CREDENTIALS_ENCRYPTION_KEY`) و AAD شناسه حساب؛ هرگز در پاسخ، audit یا لاگ؛ پیام خطاها شامل URL/توکن نیست | `bale.test.ts`, `bale.int.ts` |
+| پرداخت (فاز E) | فقط Interface + درگاه آزمایشی (`PAYMENTS_MOCK_ENABLED`, پیش‌فرض false)، با برچسب آشکار «آزمایشی» در UI؛ وب‌هوک با HMAC-SHA256 و مقایسه زمان‌ثابت؛ idempotent؛ مبلغ callback با مبلغ پرداخت مقایسه می‌شود؛ وضعیت نهایی تغییرناپذیر | `billing.int.ts`, `payment-gateway.spec.ts` |
+| داده حساس پرداخت (فاز E) | SUPPORT به سفارش، پرداخت و درآمد دسترسی ندارد؛ مرجع درگاه بدون `admin:payments:sensitive` ماسک می‌شود؛ محتوای خام وب‌هوک فقط با همان مجوز | `billing.int.ts` |
+| لایسنس (فاز E) | ۸۰ بیت تصادفی (`crypto.randomInt`)؛ فقط SHA-256 ذخیره و فقط یک بار نمایش؛ مصرف اتمی (`UPDATE ... WHERE status='AVAILABLE'`)؛ پیام یکسان برای همه کلیدهای نامعتبر؛ rate limit سخت | `billing.int.ts` |
 | SSRF (فاز D) | نشانی API بله فقط از env؛ https اجباری در production؛ redirect ممنوع؛ قالب توکن محدود تا مسیر URL را تغییر ندهد | `bale.test.ts` |
 
 ## نکات طراحی
@@ -51,6 +54,8 @@ npm audit --omit=dev
 نسخه‌ها در `package.json` بدون `^` ثابت هستند و `package-lock.json` در مخزن است.
 
 ## کارهای باقی‌مانده پیش از انتشار عمومی
+
+- اتصال به درگاه بانکی واقعی: پیاده‌سازی `PaymentGateway`، تأیید نتیجه با API «verify» خود درگاه پیش از SUCCEEDED (callback امضاشده به‌تنهایی کافی نیست)، و تطبیق روزانه با گزارش درگاه برای پرداخت‌هایی که پس از لغو خودکار سفارش (۲۴ ساعت) موفق شده‌اند
 
 - RLS در PostgreSQL به‌عنوان لایه دوم جداسازی
 - احراز هویت دومرحله‌ای (TOTP) برای نقش‌های مدیریتی

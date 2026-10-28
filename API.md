@@ -77,8 +77,29 @@
 | POST | `/organizations/:orgId/campaigns/:id/start` | `campaigns:send` | `{scheduledAt?}`؛ ثبت گیرندگان + outbox |
 | POST | `/organizations/:orgId/campaigns/:id/pause` \| `resume` \| `cancel` | `campaigns:send` | انتقال وضعیت؛ غیرمجاز ⇒ ۴۰۹ |
 | GET | `/organizations/:orgId/campaigns/:id/recipients` | `campaigns:read` | گزارش گیرندگان (`status`, صفحه‌بندی) |
+| GET | `/plans` | عمومی | پلن‌های فعال و عمومی (صفحه قیمت‌ها)؛ مبلغ‌ها رشته ریالی |
+| GET | `/organizations/:orgId/billing` | `billing:read` | پلن و اشتراک فعلی، سقف‌ها، مصرف، پلن‌ها، ۲۰ سفارش اخیر |
+| POST | `/organizations/:orgId/billing/checkout` | `billing:write` | `{planId}`؛ پلن رایگان فوراً فعال می‌شود؛ پلن پولی ⇒ سفارش + پرداخت و `redirectUrl`؛ بدون درگاه ۵۰۳ `PAYMENT_UNAVAILABLE` |
+| POST | `/organizations/:orgId/billing/redeem-license` | `billing:write` (rate limit سخت) | `{key}`؛ کلید ناموجود، مصرف‌شده، باطل یا منقضی همه ۴۰۴ با یک پیام |
+| GET | `/payments/mock/:paymentId` | نشست + `billing:write` در سازمان سفارش | اطلاعات صفحه درگاه آزمایشی؛ فقط با `PAYMENTS_MOCK_ENABLED=true` |
+| POST | `/payments/mock/:paymentId/complete` | همان | `{outcome: SUCCEEDED\|FAILED\|CANCELED}`؛ callback امضاشده می‌سازد و از مسیر عادی وب‌هوک پردازش می‌کند |
+| POST | `/payments/webhooks/mock` | عمومی، امضای HMAC در `X-Mock-Signature` (بدون CSRF) | idempotent با `(provider, eventId)`؛ امضای نادرست ۴۰۱؛ پاسخ `processed` / `duplicate` / `ignored` |
 | GET | `/admin/stats` | `admin:dashboard` | آمار |
+| GET | `/admin/billing/stats` | `admin:subscriptions:read` | اشتراک فعال، سفارش باز، کلید آماده؛ درآمد ۳۰ روز فقط با `admin:payments:read` |
+| GET / POST | `/admin/plans` | `admin:subscriptions:read` / `admin:plans:write` | پلن‌ها با تعداد اشتراک فعال / ایجاد |
+| PATCH | `/admin/plans/:id` | `admin:plans:write` | فقط فیلدهای ارسال‌شده تغییر می‌کنند؛ روی سفارش‌های قبلی اثر ندارد |
+| GET | `/admin/subscriptions` | `admin:subscriptions:read` | `status`, `q` |
+| POST | `/admin/organizations/:orgId/subscription` | `admin:subscriptions:write` | `{planId, periodDays}` اعطای دستی |
+| POST | `/admin/subscriptions/:id/cancel` | `admin:subscriptions:write` | لغو فوری (بدون بازپرداخت خودکار) |
+| GET | `/admin/orders` | `admin:payments:read` | سفارش‌ها با پرداخت‌ها و تاریخچه وضعیت؛ مرجع درگاه بدون `admin:payments:sensitive` ماسک می‌شود |
+| GET | `/admin/webhook-events` | `admin:payments:sensitive` | محتوای خام callbackها |
+| GET / POST | `/admin/licenses` | `admin:licenses:write` | فهرست (بدون hash) / ساخت تا ۱۰۰ کلید — کلیدها فقط در همین پاسخ |
+| POST | `/admin/licenses/:id/revoke` | `admin:licenses:write` | فقط کلید استفاده‌نشده |
 | GET | `/admin/users` | `admin:users:read` | جست‌وجو و صفحه‌بندی (`q`, `page`, `pageSize≤100`) |
 | PATCH | `/admin/users/:id/status` | `admin:users:write` | تعلیق / فعال‌سازی |
 | GET | `/admin/organizations` | `admin:orgs:read` | سازمان‌ها |
 | GET | `/admin/audit-logs` | `admin:audit:read` | گزارش ممیزی (`category`, `q`) |
+
+## محدودیت پلن
+
+وقتی عملی از سقف پلن بگذرد، پاسخ `403` با `code: "PLAN_LIMIT_REACHED"` و پیامی است که سقف را نام می‌برد. نقاط بررسی: ایجاد و ورود CSV مخاطب (`maxContacts`)، ساخت حساب ارسال (`maxMessagingAccounts`)، دعوت عضو (`maxMembers`، اعضا + دعوت‌های باز)، شروع کمپین (`maxMonthlyMessages`؛ گیرندگان قابل ارسال در ماه میلادی جاری به وقت UTC، پس از ثبت گیرندگان و در همان تراکنش، پس عبور از سقف شروع را کامل برمی‌گرداند).

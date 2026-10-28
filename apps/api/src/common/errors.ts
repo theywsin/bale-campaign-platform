@@ -15,6 +15,8 @@ export type ErrorCode =
   | "TOKEN_INVALID"
   | "PAYLOAD_TOO_LARGE"
   | "SERVICE_UNAVAILABLE"
+  | "PLAN_LIMIT_REACHED"
+  | "PAYMENT_UNAVAILABLE"
   | "INTERNAL_ERROR";
 
 /** An error whose message is safe to show to end users (Persian). */
@@ -47,6 +49,11 @@ export class AppException extends Error {
 
   static unavailable(message: string): AppException {
     return new AppException(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", message);
+  }
+
+  /** The organization's plan does not allow this; the message names the limit. */
+  static planLimit(message: string): AppException {
+    return new AppException(HttpStatus.FORBIDDEN, "PLAN_LIMIT_REACHED", message);
   }
 
   static validation(message: string, fieldErrors?: Record<string, string[]>): AppException {

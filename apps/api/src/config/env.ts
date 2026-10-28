@@ -22,9 +22,16 @@ export const apiEnvSchema = baseEnvSchema
     /** SMTP connection string, e.g. smtps://user:pass@mail.example.com:465. Empty disables e-mail. */
     SMTP_URL: z.string().optional().transform((v) => (v ? v : undefined)),
     MAIL_FROM: z.string().default("Bale Campaign <no-reply@example.com>"),
+    /** Test-only payment gateway: no money moves. Never enable on a real deployment. */
+    PAYMENTS_MOCK_ENABLED: booleanFlag(false),
+    /** HMAC key for payment webhooks (at least 32 characters). Required when a gateway is enabled. */
+    PAYMENT_WEBHOOK_SECRET: z.string().optional().transform((v) => (v ? v : undefined)),
   })
   .superRefine((env, ctx) => {
     checkProductionMessagingEnv(env, ctx);
+    if (env.PAYMENTS_MOCK_ENABLED && (!env.PAYMENT_WEBHOOK_SECRET || env.PAYMENT_WEBHOOK_SECRET.length < 32)) {
+      ctx.addIssue({ code: "custom", path: ["PAYMENT_WEBHOOK_SECRET"], message: "at least 32 characters required when a payment gateway is enabled" });
+    }
     if (env.NODE_ENV === "production" && !env.COOKIE_SECURE) {
       ctx.addIssue({ code: "custom", path: ["COOKIE_SECURE"], message: "must be true in production" });
     }

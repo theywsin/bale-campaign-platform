@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@bcp/database";
-import { campaignsNeedingDispatch, promoteScheduledCampaigns, recoverStuckRecipients, relayOutbox } from "@bcp/engine";
+import { cancelStaleOrders, expireSubscriptions, campaignsNeedingDispatch, promoteScheduledCampaigns, recoverStuckRecipients, relayOutbox } from "@bcp/engine";
 import { CAMPAIGN_QUEUE, OUTBOX_CAMPAIGN_DISPATCH } from "@bcp/shared";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
@@ -8,6 +8,7 @@ import type { Logger } from "pino";
 const OUTBOX_INTERVAL_MS = 1000;
 const SCHEDULE_INTERVAL_MS = 15_000;
 const RECOVERY_INTERVAL_MS = 60_000;
+const BILLING_INTERVAL_MS = 5 * 60_000;
 
 interface Options {
   prisma: PrismaClient;
@@ -75,6 +76,12 @@ export function startCampaignLoops({ prisma, redis, redisUrl, log }: Options): {
     for (const campaignId of await campaignsNeedingDispatch(prisma)) {
       await queue.add("dispatch", { campaignId }, { jobId: `kick-${campaignId}-${bucket}` });
     }
+  });
+
+  every("billing", BILLING_INTERVAL_MS, async () => {
+    const expired = await expireSubscriptions(prisma);
+    const canceled = await cancelStaleOrders(prisma);
+    if (expired || canceled) log.info({ expiredSubscriptions: expired, canceledOrders: canceled }, "billing maintenance");
   });
 
   return {

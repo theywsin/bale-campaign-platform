@@ -6,7 +6,7 @@ export const MODULES: { title: string; description: string; status: "available" 
   { title: "مدیریت مخاطبان", description: "فهرست‌ها، ورود از CSV، تشخیص تکرار و فهرست عدم ارسال.", status: "available" },
   { title: "کمپین و صف ارسال", description: "زمان‌بندی، توقف و ادامه، و گزارش وضعیت هر گیرنده.", status: "available" },
   { title: "اتصال به بله", description: "فقط از طریق API رسمی بازوی بله؛ ارسال به کاربرانی که بازو را شروع کرده‌اند.", status: "available" },
-  { title: "اشتراک و پرداخت", description: "پلن‌ها، پرداخت آنلاین و صدور لایسنس.", status: "planned" },
+  { title: "اشتراک و پرداخت", description: "پلن‌ها با سقف مصرف، خرید و تمدید، و فعال‌سازی با کلید لایسنس. اتصال به درگاه بانکی واقعی هنوز انجام نشده است.", status: "in-progress" },
 ];
 
 export const STATUS_LABEL = { available: "فعال", "in-progress": "در حال توسعه", planned: "برنامه‌ریزی‌شده" } as const;

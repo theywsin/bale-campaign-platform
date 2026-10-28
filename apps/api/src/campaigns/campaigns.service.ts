@@ -14,6 +14,7 @@ import {
 import type { Prisma } from "@bcp/database";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { EntitlementsService } from "../billing/entitlements.service";
 import { API_ENV, type ApiEnv } from "../config/env";
 import { AppException } from "../common/errors";
 import type { AuthUser, ClientInfo, OrgContext } from "../common/request-context";
@@ -42,6 +43,7 @@ export class CampaignsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
     @Inject(API_ENV) private readonly env: ApiEnv,
   ) {}
 
@@ -172,6 +174,8 @@ export class CampaignsService {
         if (count === 0) throw AppException.conflict("این کمپین قبلاً شروع شده است.");
         const inserted = await this.snapshotRecipients(tx, ctx.organizationId, id, c.listId);
         if (inserted === 0) throw AppException.conflict("هیچ مخاطب فعالی برای این کمپین وجود ندارد.");
+        // Counted after the snapshot, inside the transaction: exceeding the quota rolls the start back.
+        await this.entitlements.assertWithin(ctx.organizationId, "maxMonthlyMessages", 0, tx);
         if (target === "QUEUED") {
           await tx.outboxEvent.create({ data: { type: OUTBOX_CAMPAIGN_DISPATCH, payload: { campaignId: id } } });
         }

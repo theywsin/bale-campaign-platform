@@ -168,3 +168,60 @@ export interface CampaignRecipientInfo {
   deliveredAt: string | null;
   updatedAt: string;
 }
+
+export interface PlanInfo {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  /** Rials as a decimal string (values can exceed 2^53). */
+  priceRials: string;
+  periodDays: number;
+  maxContacts: number | null;
+  maxMonthlyMessages: number | null;
+  maxMessagingAccounts: number | null;
+  maxMembers: number | null;
+  isPublic: boolean;
+  isActive: boolean;
+  isDefault: boolean;
+  sortOrder: number;
+}
+
+export interface SubscriptionInfo {
+  id: string;
+  status: "ACTIVE" | "EXPIRED" | "CANCELED";
+  source: "PAYMENT" | "LICENSE" | "ADMIN";
+  startsAt: string;
+  endsAt: string;
+  plan: { id: string; code: string; name: string };
+}
+
+export interface OrderInfo {
+  id: string;
+  plan: { id: string; name: string };
+  amountRials: string;
+  periodDays: number;
+  status: "PENDING" | "PAID" | "FAILED" | "CANCELED";
+  paymentStatus: "INITIATED" | "SUCCEEDED" | "FAILED" | "CANCELED" | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface BillingOverview {
+  plan: { id: string; code: string; name: string } | null;
+  subscription: SubscriptionInfo | null;
+  limits: Record<"maxContacts" | "maxMonthlyMessages" | "maxMessagingAccounts" | "maxMembers", number | null>;
+  usage: Record<"maxContacts" | "maxMonthlyMessages" | "maxMessagingAccounts" | "maxMembers", number>;
+  plans: PlanInfo[];
+  orders: OrderInfo[];
+  /** A payment gateway is configured. */
+  paymentsEnabled: boolean;
+  /** The configured gateway is the test-only mock; the UI must say so. */
+  paymentsTestOnly: boolean;
+}
+
+export interface CheckoutResult {
+  order: OrderInfo;
+  /** Path in this panel (mock) or gateway URL to continue payment; null when nothing is due. */
+  redirectUrl: string | null;
+}

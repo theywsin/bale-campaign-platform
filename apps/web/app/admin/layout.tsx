@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, LayoutDashboard, ScrollText, Users, CreditCard, KeyRound, Flag, LifeBuoy, Settings, Package, Plug, ArrowRight } from "lucide-react";
+import { Building2, LayoutDashboard, ScrollText, Users, CreditCard, KeyRound, Flag, LifeBuoy, Settings, Package, Plug, ArrowRight, Receipt } from "lucide-react";
 import Link from "next/link";
 import { platformRoleHasPermission } from "@bcp/shared";
 import { PanelShell, type NavItem } from "@/components/panel/shell";
@@ -25,10 +25,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           { href: "/admin", label: "داشبورد مدیریتی", Icon: LayoutDashboard, exact: true },
           ...(can("admin:users:read") ? [{ href: "/admin/users", label: "کاربران", Icon: Users }] : []),
           ...(can("admin:orgs:read") ? [{ href: "/admin/organizations", label: "سازمان‌ها", Icon: Building2 }] : []),
-          { href: "/admin/plans", label: "پلن‌ها", Icon: Package, soon: true },
-          { href: "/admin/subscriptions", label: "اشتراک‌ها", Icon: CreditCard, soon: true },
-          { href: "/admin/licenses", label: "لایسنس‌ها", Icon: KeyRound, soon: true },
-          { href: "/admin/payments", label: "سفارش‌ها و پرداخت‌ها", Icon: CreditCard, soon: true },
+          ...(can("admin:subscriptions:read") ? [{ href: "/admin/plans", label: "پلن‌ها", Icon: Package }] : []),
+          ...(can("admin:subscriptions:read") ? [{ href: "/admin/subscriptions", label: "اشتراک‌ها", Icon: CreditCard }] : []),
+          ...(can("admin:licenses:write") ? [{ href: "/admin/licenses", label: "لایسنس‌ها", Icon: KeyRound }] : []),
+          ...(can("admin:payments:read") ? [{ href: "/admin/payments", label: "سفارش‌ها و پرداخت‌ها", Icon: Receipt }] : []),
           { href: "/admin/reported-campaigns", label: "کمپین‌های گزارش‌شده", Icon: Flag, soon: true },
           { href: "/admin/providers", label: "وضعیت اتصال ارائه‌دهنده", Icon: Plug, soon: true },
           { href: "/admin/tickets", label: "تیکت‌ها", Icon: LifeBuoy, soon: true },
