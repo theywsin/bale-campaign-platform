@@ -35,6 +35,7 @@
 | پرداخت (فاز E) | فقط Interface + درگاه آزمایشی (`PAYMENTS_MOCK_ENABLED`, پیش‌فرض false)، با برچسب آشکار «آزمایشی» در UI؛ وب‌هوک با HMAC-SHA256 و مقایسه زمان‌ثابت؛ idempotent؛ مبلغ callback با مبلغ پرداخت مقایسه می‌شود؛ وضعیت نهایی تغییرناپذیر | `billing.int.ts`, `payment-gateway.spec.ts` |
 | داده حساس پرداخت (فاز E) | SUPPORT به سفارش، پرداخت و درآمد دسترسی ندارد؛ مرجع درگاه بدون `admin:payments:sensitive` ماسک می‌شود؛ محتوای خام وب‌هوک فقط با همان مجوز | `billing.int.ts` |
 | لایسنس (فاز E) | ۸۰ بیت تصادفی (`crypto.randomInt`)؛ فقط SHA-256 ذخیره و فقط یک بار نمایش؛ مصرف اتمی (`UPDATE ... WHERE status='AVAILABLE'`)؛ پیام یکسان برای همه کلیدهای نامعتبر؛ rate limit سخت | `billing.int.ts` |
+| پوشش مسیرها (فاز F) | فهرست همه مسیرهای Express از خود برنامه خوانده می‌شود؛ هر مسیر خارج از فهرست عمومی باید به ناشناس ۴۰۱ و هر مسیر ادمین به مشتری ۴۰۳ بدهد | `route-inventory.int.ts` |
 | SSRF (فاز D) | نشانی API بله فقط از env؛ https اجباری در production؛ redirect ممنوع؛ قالب توکن محدود تا مسیر URL را تغییر ندهد | `bale.test.ts` |
 
 ## نکات طراحی

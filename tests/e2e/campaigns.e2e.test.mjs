@@ -26,7 +26,7 @@ after(async () => {
 });
 
 async function newPage(viewport = { width: 1280, height: 900 }) {
-  const context = await browser.newContext({ viewport, locale: "fa-IR", acceptDownloads: true });
+  const context = await browser.newContext({ viewport, locale: "fa-IR", ignoreHTTPSErrors: process.env.E2E_INSECURE_TLS === "1", acceptDownloads: true });
   return context.newPage();
 }
 

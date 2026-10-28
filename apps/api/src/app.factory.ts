@@ -28,6 +28,8 @@ export async function createApp(env: ApiEnv): Promise<INestApplication> {
       // The API serves JSON only; a strict CSP is safe. Swagger UI needs inline assets.
       contentSecurityPolicy: env.SWAGGER_ENABLED ? false : { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
       crossOriginResourcePolicy: { policy: "same-site" },
+      // Nginx sets HSTS, and only on HTTPS responses; sending it here duplicated the header.
+      strictTransportSecurity: false,
     }),
   );
 
