@@ -53,6 +53,7 @@ export class SessionService {
         fullName: u.fullName,
         platformRole: (u.platformRole as PlatformRole | null) ?? null,
         emailVerified: u.emailVerifiedAt !== null,
+        mfaEnabled: u.totpEnabledAt !== null,
         createdAt: u.createdAt,
       },
     };

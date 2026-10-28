@@ -100,6 +100,18 @@
 | GET | `/admin/organizations` | `admin:orgs:read` | سازمان‌ها |
 | GET | `/admin/audit-logs` | `admin:audit:read` | گزارش ممیزی (`category`, `q`) |
 
+## پشتیبانی، تنظیمات و ۲FA (فاز G)
+
+| مسیر | توضیح |
+|---|---|
+| `GET/POST /organizations/:orgId/tickets`، `GET :id`، `POST :id/messages`، `POST :id/close` | تیکت مشتری؛ پاسخ مشتری تیکت را باز می‌کند |
+| `GET /admin/tickets`، `GET/PATCH /admin/tickets/:id`، `POST /admin/tickets/:id/messages` | صف پشتیبانی (`admin:tickets:*`) |
+| `GET /admin/campaigns`، `POST /admin/campaigns/:id/stop` | پایش و توقف کمپین (`admin:campaigns:moderate`) |
+| `GET /admin/providers` | وضعیت ارسال ۲۴ ساعت اخیر، بدون راز |
+| `GET /settings` (عمومی)، `GET/PUT /admin/settings` | تنظیمات سامانه (`admin:settings:write`) |
+| `POST /auth/login` → `{mfaRequired, mfaToken}`، `POST /auth/login/mfa` | ورود دومرحله‌ای |
+| `GET /auth/mfa`، `POST /auth/mfa/setup|confirm|disable` | مدیریت ۲FA کاربر |
+
 ## محدودیت پلن
 
 وقتی عملی از سقف پلن بگذرد، پاسخ `403` با `code: "PLAN_LIMIT_REACHED"` و پیامی است که سقف را نام می‌برد. نقاط بررسی: ایجاد و ورود CSV مخاطب (`maxContacts`)، ساخت حساب ارسال (`maxMessagingAccounts`)، دعوت عضو (`maxMembers`، اعضا + دعوت‌های باز)، شروع کمپین (`maxMonthlyMessages`؛ گیرندگان قابل ارسال در ماه میلادی جاری به وقت UTC، پس از ثبت گیرندگان و در همان تراکنش، پس عبور از سقف شروع را کامل برمی‌گرداند).

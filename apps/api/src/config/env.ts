@@ -22,6 +22,8 @@ export const apiEnvSchema = baseEnvSchema
     /** SMTP connection string, e.g. smtps://user:pass@mail.example.com:465. Empty disables e-mail. */
     SMTP_URL: z.string().optional().transform((v) => (v ? v : undefined)),
     MAIL_FROM: z.string().default("Bale Campaign <no-reply@example.com>"),
+    /** Staff (platform roles) must enable 2FA before using the admin API. */
+    ADMIN_MFA_REQUIRED: booleanFlag(true),
     /** Test-only payment gateway: no money moves. Never enable on a real deployment. */
     PAYMENTS_MOCK_ENABLED: booleanFlag(false),
     /** HMAC key for payment webhooks (at least 32 characters). Required when a gateway is enabled. */

@@ -1,4 +1,5 @@
-import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
+import { CanActivate, ExecutionContext, HttpStatus, Inject, Injectable } from "@nestjs/common";
+import { API_ENV, type ApiEnv } from "../../config/env";
 import { Reflector } from "@nestjs/core";
 import {
   isOrganizationRole,
@@ -57,7 +58,10 @@ export class OrgPermissionGuard implements CanActivate {
 
 @Injectable()
 export class PlatformPermissionGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    @Inject(API_ENV) private readonly env: ApiEnv,
+  ) {}
 
   canActivate(ctx: ExecutionContext): boolean {
     const permission = this.reflector.getAllAndOverride<PlatformPermission | undefined>(PLATFORM_PERMISSION_KEY, [
@@ -68,6 +72,9 @@ export class PlatformPermissionGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest<AppRequest>();
     if (!req.auth) throw AppException.unauthenticated();
     if (!platformRoleHasPermission(req.auth.user.platformRole, permission)) throw AppException.forbidden();
+    if (this.env.ADMIN_MFA_REQUIRED && !req.auth.user.mfaEnabled) {
+      throw new AppException(HttpStatus.FORBIDDEN, "MFA_REQUIRED", "برای استفاده از پنل مدیریت، ابتدا ورود دومرحله‌ای را در «پروفایل و امنیت» فعال کنید.");
+    }
     return true;
   }
 }

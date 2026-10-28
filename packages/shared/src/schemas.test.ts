@@ -39,3 +39,10 @@ test("contact needs a phone or a chat id and normalizes both", async () => {
   const c = createContactSchema.parse({ phone: "۰۹۱۲۱۲۳۴۵۶۷", baleChatId: " ۱۲۳ ", firstName: "" });
   assert.deepEqual([c.phone, c.baleChatId, c.firstName], ["+989121234567", "123", null]);
 });
+
+test("mfa codes accept Persian digits and recovery codes", async () => {
+  const { mfaCodeSchema } = await import("./support");
+  assert.equal(mfaCodeSchema.parse("۱۲۳ ۴۵۶"), "123456");
+  assert.equal(mfaCodeSchema.parse("abcde-12345"), "ABCDE-12345");
+  assert.equal(mfaCodeSchema.safeParse("12345").success, false);
+});

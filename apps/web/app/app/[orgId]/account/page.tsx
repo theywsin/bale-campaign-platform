@@ -4,6 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   changePasswordSchema,
   PASSWORD_MIN_LENGTH,
+  totpConfirmSchema,
+  totpDisableSchema,
   updateProfileSchema,
   type ChangePasswordInput,
   type MeResponse,
@@ -11,6 +13,7 @@ import {
   type UpdateProfileInput,
 } from "@bcp/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { applyServerErrors } from "@/components/forms";
@@ -41,6 +44,7 @@ export default function AccountPage() {
         <ProfileCard me={me.data} />
         <PasswordCard />
       </div>
+      <TwoFactorCard />
       <SessionsCard />
     </>
   );
@@ -120,6 +124,155 @@ function PasswordCard() {
         <Button type="submit" loading={form.formState.isSubmitting}>تغییر رمز</Button>
       </form>
     </Card>
+  );
+}
+
+interface MfaStatus {
+  available: boolean;
+  enabled: boolean;
+  recoveryCodesLeft: number;
+}
+
+function TwoFactorCard() {
+  const qc = useQueryClient();
+  const status = useQuery({ queryKey: ["mfa"], queryFn: () => api<MfaStatus>("/auth/mfa") });
+  const [setup, setSetup] = useState<{ secret: string; otpauthUri: string; qr: string } | null>(null);
+  const [codes, setCodes] = useState<string[] | null>(null);
+  const [disabling, setDisabling] = useState(false);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const refresh = async () => {
+    await qc.invalidateQueries({ queryKey: ["mfa"] });
+    await qc.invalidateQueries({ queryKey: ME_KEY });
+    await qc.invalidateQueries({ queryKey: ["sessions"] });
+  };
+  const start = useMutation({
+    mutationFn: async () => {
+      const res = await api<{ secret: string; otpauthUri: string }>("/auth/mfa/setup", { method: "POST" });
+      return { ...res, qr: await QRCode.toDataURL(res.otpauthUri, { margin: 1, width: 192 }) };
+    },
+    onSuccess: (s) => {
+      setNotice(null);
+      setSetup(s);
+    },
+    onError: (err) => setNotice({ tone: "error", text: errorMessage(err) }),
+  });
+
+  return (
+    <Card className="mt-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-bold text-slate-900">ورود دومرحله‌ای</h2>
+          <p className="mt-1 text-sm text-slate-600">علاوه بر رمز عبور، هنگام ورود کد برنامه احراز هویت (مثل Google Authenticator یا Aegis) خواسته می‌شود.</p>
+        </div>
+        {status.data && (status.data.enabled ? <Badge tone="green">فعال</Badge> : <Badge tone="slate">غیرفعال</Badge>)}
+      </div>
+      <div className="mt-4 space-y-4">
+        {notice && <Alert tone={notice.tone}>{notice.text}</Alert>}
+        {codes && (
+          <Alert tone="warning" title="کدهای بازیابی را همین حالا ذخیره کنید">
+            <p>اگر به گوشی دسترسی نداشتید، با هر کدام یک بار می‌توانید وارد شوید. پس از بستن این پیام دوباره نمایش داده نمی‌شوند.</p>
+            <textarea readOnly aria-label="کدهای بازیابی" dir="ltr" rows={5} className="mt-2 block w-full rounded-lg border border-amber-300 bg-white p-2 font-mono text-sm" value={codes.join("\n")} />
+            <Button size="sm" variant="secondary" className="mt-2" onClick={() => setCodes(null)}>ذخیره کردم، بستن</Button>
+          </Alert>
+        )}
+        {status.isPending ? (
+          <LoadingBlock />
+        ) : status.isError ? (
+          <Alert tone="error">{errorMessage(status.error)}</Alert>
+        ) : !status.data.available ? (
+          <Alert tone="warning">ورود دومرحله‌ای روی این سرور پیکربندی نشده است (کلید رمزنگاری تنظیم نشده). با مدیر سامانه تماس بگیرید.</Alert>
+        ) : status.data.enabled ? (
+          <>
+            <p className="text-sm text-slate-600">کدهای بازیابی باقی‌مانده: {status.data.recoveryCodesLeft.toLocaleString("fa-IR")}</p>
+            {disabling ? (
+              <DisableMfaForm
+                onCancel={() => setDisabling(false)}
+                onDone={async () => {
+                  setDisabling(false);
+                  setNotice({ tone: "success", text: "ورود دومرحله‌ای غیرفعال شد." });
+                  await refresh();
+                }}
+              />
+            ) : (
+              <Button variant="secondary" onClick={() => setDisabling(true)}>غیرفعال کردن</Button>
+            )}
+          </>
+        ) : setup ? (
+          <ConfirmMfaForm
+            setup={setup}
+            onCancel={() => setSetup(null)}
+            onDone={async (recoveryCodes) => {
+              setSetup(null);
+              setCodes(recoveryCodes);
+              setNotice({ tone: "success", text: "ورود دومرحله‌ای فعال شد. سایر نشست‌ها بسته شدند." });
+              await refresh();
+            }}
+          />
+        ) : (
+          <Button onClick={() => start.mutate()} loading={start.isPending}>فعال‌سازی ورود دومرحله‌ای</Button>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function ConfirmMfaForm({ setup, onDone, onCancel }: { setup: { secret: string; qr: string }; onDone: (codes: string[]) => Promise<void>; onCancel: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const form = useForm<{ code: string }>({ resolver: zodResolver(totpConfirmSchema), defaultValues: { code: "" } });
+  const onSubmit = form.handleSubmit(async (values) => {
+    setError(null);
+    try {
+      const res = await api<{ recoveryCodes: string[] }>("/auth/mfa/confirm", { method: "POST", body: values });
+      await onDone(res.recoveryCodes);
+    } catch (err) {
+      setError(applyServerErrors(err, form.setError));
+    }
+  });
+  return (
+    <form onSubmit={onSubmit} noValidate aria-label="تأیید ورود دومرحله‌ای" className="space-y-4">
+      {error && <Alert tone="error">{error}</Alert>}
+      <ol className="list-decimal space-y-3 pr-5 text-sm text-slate-700">
+        <li>
+          این کد QR را با برنامه احراز هویت اسکن کنید:
+          <img src={setup.qr} alt="کد QR برای افزودن حساب به برنامه احراز هویت" width={192} height={192} className="mt-2 rounded-lg border border-slate-200" />
+          <span className="mt-2 block text-xs text-slate-500">یا این کلید را دستی وارد کنید:</span>
+          <code dir="ltr" className="mt-1 block break-all rounded bg-slate-100 px-2 py-1 text-left font-mono text-xs">{setup.secret}</code>
+        </li>
+        <li>کد ۶ رقمی‌ای را که برنامه نشان می‌دهد وارد کنید.</li>
+      </ol>
+      <Field label="کد تأیید" ltr inputMode="numeric" autoComplete="one-time-code" className="max-w-48" error={form.formState.errors.code?.message} {...form.register("code")} />
+      <div className="flex gap-2">
+        <Button type="submit" loading={form.formState.isSubmitting}>تأیید و فعال‌سازی</Button>
+        <Button variant="secondary" onClick={onCancel}>انصراف</Button>
+      </div>
+    </form>
+  );
+}
+
+function DisableMfaForm({ onDone, onCancel }: { onDone: () => Promise<void>; onCancel: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const form = useForm<{ password: string; code: string }>({ resolver: zodResolver(totpDisableSchema), defaultValues: { password: "", code: "" } });
+  const onSubmit = form.handleSubmit(async (values) => {
+    setError(null);
+    try {
+      await api("/auth/mfa/disable", { method: "POST", body: values });
+      await onDone();
+    } catch (err) {
+      setError(applyServerErrors(err, form.setError));
+    }
+  });
+  return (
+    <form onSubmit={onSubmit} noValidate aria-label="غیرفعال کردن ورود دومرحله‌ای" className="space-y-4">
+      {error && <Alert tone="error">{error}</Alert>}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="رمز عبور" type="password" autoComplete="current-password" ltr error={form.formState.errors.password?.message} {...form.register("password")} />
+        <Field label="کد تأیید یا کد بازیابی" ltr autoComplete="one-time-code" error={form.formState.errors.code?.message} {...form.register("code")} />
+      </div>
+      <div className="flex gap-2">
+        <Button type="submit" variant="danger" loading={form.formState.isSubmitting}>غیرفعال کردن</Button>
+        <Button variant="secondary" onClick={onCancel}>انصراف</Button>
+      </div>
+    </form>
   );
 }
 

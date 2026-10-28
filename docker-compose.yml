@@ -117,6 +117,7 @@ services:
       AUTH_RATE_LIMIT_PER_MINUTE: ${AUTH_RATE_LIMIT_PER_MINUTE:-10}
       # Test-only payment gateway (no money moves); never enable on a real deployment.
       PAYMENTS_MOCK_ENABLED: ${PAYMENTS_MOCK_ENABLED:-false}
+      ADMIN_MFA_REQUIRED: ${ADMIN_MFA_REQUIRED:-true}
       PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-}
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-}

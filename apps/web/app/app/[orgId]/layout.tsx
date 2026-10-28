@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ROLE_LABELS_FA } from "@bcp/shared";
+import { AnnouncementBanner } from "@/components/panel/announcement";
 import { PanelShell, type NavItem } from "@/components/panel/shell";
 import { RequireMe } from "@/components/panel/require-me";
 import { EmptyState } from "@/components/ui/card";
@@ -46,7 +47,7 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
           { href: `${base}/campaigns`, label: "کمپین‌ها", Icon: Megaphone },
           { href: `${base}/messaging-accounts`, label: "حساب‌های پیام‌رسان", Icon: MessagesSquare },
           { href: `${base}/billing`, label: "اشتراک و پرداخت", Icon: CreditCard },
-          { href: `${base}/support`, label: "تیکت پشتیبانی", Icon: LifeBuoy, soon: true },
+          { href: `${base}/support`, label: "تیکت پشتیبانی", Icon: LifeBuoy },
           { href: `${base}/members`, label: "اعضا و نقش‌ها", Icon: UserCog },
           ...(canManage ? [{ href: `${base}/settings`, label: "تنظیمات فضای کاری", Icon: Settings }] : []),
           { href: `${base}/account`, label: "پروفایل و امنیت", Icon: Shield },
@@ -74,6 +75,7 @@ export default function OrgLayout({ children }: { children: React.ReactNode }) {
         );
         return (
           <PanelShell me={me} nav={nav} title="منوی پنل" headerExtra={switcher}>
+            <AnnouncementBanner />
             {children}
           </PanelShell>
         );

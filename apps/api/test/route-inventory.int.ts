@@ -10,6 +10,8 @@ const PUBLIC = new Set([
   "GET /api/v1/auth/capabilities",
   "POST /api/v1/auth/register",
   "POST /api/v1/auth/login",
+  "POST /api/v1/auth/login/mfa",
+  "GET /api/v1/settings",
   "POST /api/v1/auth/password/forgot",
   "POST /api/v1/auth/password/reset",
   "POST /api/v1/auth/email/verify",

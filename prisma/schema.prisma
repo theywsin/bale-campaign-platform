@@ -49,26 +49,32 @@ enum UserTokenPurpose {
 }
 
 model User {
-  id                String        @id @default(uuid(7)) @db.Uuid
+  id                  String        @id @default(uuid(7)) @db.Uuid
   /// Always stored lower-cased and trimmed (see emailSchema in @bcp/shared).
-  email             String        @unique @db.VarChar(254)
+  email               String        @unique @db.VarChar(254)
   /// Argon2id hash (PHC string). The plain password is never stored.
-  passwordHash      String        @map("password_hash") @db.VarChar(255)
-  fullName          String        @map("full_name") @db.VarChar(100)
-  status            UserStatus    @default(ACTIVE)
+  passwordHash        String        @map("password_hash") @db.VarChar(255)
+  fullName            String        @map("full_name") @db.VarChar(100)
+  status              UserStatus    @default(ACTIVE)
   /// Staff role on the operator side; null for customers.
-  platformRole      PlatformRole? @map("platform_role")
-  emailVerifiedAt   DateTime?     @map("email_verified_at") @db.Timestamptz(3)
-  passwordChangedAt DateTime      @default(now()) @map("password_changed_at") @db.Timestamptz(3)
-  lastLoginAt       DateTime?     @map("last_login_at") @db.Timestamptz(3)
-  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  platformRole        PlatformRole? @map("platform_role")
+  emailVerifiedAt     DateTime?     @map("email_verified_at") @db.Timestamptz(3)
+  passwordChangedAt   DateTime      @default(now()) @map("password_changed_at") @db.Timestamptz(3)
+  lastLoginAt         DateTime?     @map("last_login_at") @db.Timestamptz(3)
+  /// TOTP secret, AES-256-GCM encrypted with CREDENTIALS_ENCRYPTION_KEY. Set during setup, active once totpEnabledAt is set.
+  totpSecretEncrypted String?       @map("totp_secret_encrypted") @db.Text
+  totpEnabledAt       DateTime?     @map("totp_enabled_at") @db.Timestamptz(3)
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   sessions             Session[]
   tokens               UserToken[]
   memberships          OrganizationMember[]
-  invitationsSent      Invitation[]         @relation("InvitationInviter")
-  organizationsCreated Organization[]       @relation("OrganizationCreator")
+  invitationsSent      Invitation[]           @relation("InvitationInviter")
+  organizationsCreated Organization[]         @relation("OrganizationCreator")
+  recoveryCodes        UserRecoveryCode[]
+  ticketsCreated       SupportTicket[]
+  ticketMessages       SupportTicketMessage[]
 
   @@index([createdAt])
   @@index([platformRole])
@@ -157,6 +163,7 @@ model Organization {
   subscriptions     Subscription[]
   orders            Order[]
   licensesRedeemed  License[]
+  supportTickets    SupportTicket[]
 
   @@index([status, createdAt])
   @@map("organizations")
@@ -706,4 +713,81 @@ model License {
 
   @@index([status, createdAt])
   @@map("licenses")
+}
+
+/// One-time 2FA recovery codes; only SHA-256 hashes are stored.
+model UserRecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @unique @map("code_hash") @db.Char(64)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_recovery_codes")
+}
+
+// ---------------------------------------------------------------------------
+// Support
+// ---------------------------------------------------------------------------
+
+enum TicketStatus {
+  /// Waiting for support.
+  OPEN
+  /// Support replied; waiting for the customer.
+  ANSWERED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum TicketCategory {
+  TECHNICAL
+  BILLING
+  ACCOUNT
+  OTHER
+}
+
+model SupportTicket {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  createdById    String?        @map("created_by_id") @db.Uuid
+  subject        String         @db.VarChar(150)
+  category       TicketCategory
+  priority       TicketPriority @default(NORMAL)
+  status         TicketStatus   @default(OPEN)
+  lastMessageAt  DateTime       @default(now()) @map("last_message_at") @db.Timestamptz(3)
+  closedAt       DateTime?      @map("closed_at") @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?                  @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  messages     SupportTicketMessage[]
+
+  @@index([organizationId, lastMessageAt(sort: Desc)])
+  @@index([status, lastMessageAt(sort: Desc)])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  ticketId  String   @map("ticket_id") @db.Uuid
+  authorId  String?  @map("author_id") @db.Uuid
+  /// Written by platform staff (shown as «پشتیبانی» to the customer).
+  fromStaff Boolean  @map("from_staff")
+  body      String   @db.VarChar(5000)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@map("support_ticket_messages")
 }
