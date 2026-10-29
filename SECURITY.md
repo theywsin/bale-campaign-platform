@@ -56,6 +56,9 @@
 
 ## بررسی وابستگی‌ها
 
+در CI (`.github/workflows/ci.yml`) روی هر PR: `npm audit --omit=dev --audit-level=moderate`، اسکن Trivy ایمیج‌های api و web (شکست روی HIGH/CRITICAL قابل‌رفع) و بررسی نبود فایل `.env` در ایمیج‌ها.
+
+
 ```bash
 npm audit --omit=dev
 ```
@@ -67,5 +70,5 @@ npm audit --omit=dev
 - اتصال به درگاه بانکی واقعی: پیاده‌سازی `PaymentGateway`، تأیید نتیجه با API «verify» خود درگاه پیش از SUCCEEDED (callback امضاشده به‌تنهایی کافی نیست)، و تطبیق روزانه با گزارش درگاه برای پرداخت‌هایی که پس از لغو خودکار سفارش (۲۴ ساعت) موفق شده‌اند
 
 - RLS در PostgreSQL به‌عنوان لایه دوم جداسازی
-- اسکن خودکار وابستگی و کانتینر در CI
+
 - تست نفوذ مستقل
