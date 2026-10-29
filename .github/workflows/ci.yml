@@ -135,7 +135,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate compose file
-        run: cp .env.example .env && docker compose config --quiet && rm .env
+        # The compose file refuses to start without passwords; CI supplies throwaway ones.
+        run: cp .env.example .env && POSTGRES_PASSWORD=ci-only REDIS_PASSWORD=ci-only docker compose config --quiet && rm .env
       - name: Build images
         run: |
           for t in migrator api worker scheduler web; do
