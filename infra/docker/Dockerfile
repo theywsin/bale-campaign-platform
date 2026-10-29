@@ -9,6 +9,10 @@ ARG NODE_IMAGE=node:22.22.0-bookworm-slim
 FROM ${NODE_IMAGE} AS base
 ENV NEXT_TELEMETRY_DISABLED=1 \
     npm_config_update_notifier=false
+# Pick up Debian security fixes released after the Node base image was published.
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # ---- dependency manifests only, for layer caching ---------------------------
