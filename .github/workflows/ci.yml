@@ -144,10 +144,16 @@ jobs:
           done
       - name: Scan images with Trivy (fail on fixable HIGH/CRITICAL)
         run: |
+          status=0
           for t in api web; do
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$HOME/.cache/trivy:/root/.cache" \
-              aquasec/trivy:0.57.1 image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress bale-campaign/$t:ci
+              aquasec/trivy:0.57.1 image --severity HIGH,CRITICAL --ignore-unfixed --no-progress --format json -q bale-campaign/$t:ci > trivy-$t.json
+            # One annotation per finding, so the result is readable without the raw log.
+            n=$(jq '[.Results[]?.Vulnerabilities[]?] | length' trivy-$t.json)
+            jq -r --arg img "$t" '.Results[]? | .Target as $tg | .Vulnerabilities[]? | "::error title=\($img): \(.VulnerabilityID)::\(.Severity) \(.PkgName) \(.InstalledVersion) -> \(.FixedVersion) (\($tg))"' trivy-$t.json
+            [ "$n" = "0" ] || status=1
           done
+          exit $status
       - name: Check no .env file is baked into an image
         run: |
           for t in api worker scheduler web; do
