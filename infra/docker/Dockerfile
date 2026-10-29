@@ -49,6 +49,8 @@ RUN --mount=type=cache,target=/root/.npm --mount=type=secret,id=extra_ca,require
 # ---- shared runtime for the Node services ------------------------------------
 FROM base AS node-runtime
 ENV NODE_ENV=production
+# The services run plain node; dropping the bundled npm removes its dependency tree from the attack surface.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/package.json ./
 COPY --from=build --chown=node:node /app/packages/config/package.json /app/packages/config/
@@ -104,6 +106,8 @@ FROM base AS web
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
     PORT=3000
+# The services run plain node; dropping the bundled npm removes its dependency tree from the attack surface.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone ./
 COPY --from=build --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build --chown=node:node /app/apps/web/public ./apps/web/public
