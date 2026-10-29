@@ -141,22 +141,12 @@ jobs:
           for t in migrator api worker scheduler web; do
             docker build -f infra/docker/Dockerfile --target $t -t bale-campaign/$t:ci .
           done
-      - name: Scan images (fail on fixable HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: image
-          image-ref: bale-campaign/api:ci
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-      - name: Scan web image
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: image
-          image-ref: bale-campaign/web:ci
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
+      - name: Scan images with Trivy (fail on fixable HIGH/CRITICAL)
+        run: |
+          for t in api web; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$HOME/.cache/trivy:/root/.cache" \
+              aquasec/trivy:0.57.1 image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress bale-campaign/$t:ci
+          done
       - name: Check no .env file is baked into an image
         run: |
           for t in api worker scheduler web; do
