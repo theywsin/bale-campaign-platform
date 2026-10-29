@@ -1,0 +1,166 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Test-only values: none of these is a real secret.
+env:
+  NODE_ENV: test
+  DATABASE_URL: postgresql://bcp:bcp_ci_only@127.0.0.1:5432/bcp_dev?schema=public
+  TEST_DATABASE_URL: postgresql://bcp:bcp_ci_only@127.0.0.1:5432/bcp_test?schema=public
+  REDIS_URL: redis://127.0.0.1:6379/0
+  TEST_REDIS_URL: redis://127.0.0.1:6379/15
+
+jobs:
+  test:
+    name: Typecheck, unit and integration tests, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.11-alpine
+        env:
+          POSTGRES_USER: bcp
+          POSTGRES_PASSWORD: bcp_ci_only
+          POSTGRES_DB: bcp_dev
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U bcp" --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build:packages
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:integration
+      - run: npm run build
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=moderate
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs: test
+    services:
+      postgres:
+        image: postgres:17.11-alpine
+        env:
+          POSTGRES_USER: bcp
+          POSTGRES_PASSWORD: bcp_ci_only
+          POSTGRES_DB: bcp_dev
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U bcp" --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      # "production" refuses plain-HTTP cookies and Bale URLs; the services run in development mode
+      # against a production Next build (next start), like the local E2E setup.
+      NODE_ENV: development
+      APP_URL: http://localhost:3000
+      COOKIE_SECURE: "false"
+      AUTH_RATE_LIMIT_PER_MINUTE: "60"
+      RATE_LIMIT_PER_MINUTE: "300"
+      MESSAGING_MOCK_ENABLED: "true"
+      PAYMENTS_MOCK_ENABLED: "true"
+      PAYMENT_WEBHOOK_SECRET: ci-only-webhook-secret-0123456789abcdef
+      ADMIN_MFA_REQUIRED: "false"
+      BALE_API_BASE_URL: http://127.0.0.1:4300
+      E2E_ADMIN_EMAIL: ops@example.test
+      E2E_ADMIN_PASSWORD: CiAdminPassw0rd2026
+      E2E_SCREENSHOTS: test-results/e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+        env:
+          NODE_ENV: production
+      - run: npx prisma migrate deploy
+      - name: Generate a throwaway credentials key
+        run: echo "CREDENTIALS_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+      - name: Create the platform admin
+        run: npm run admin:create
+        env:
+          ADMIN_EMAIL: ${{ env.E2E_ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
+          ADMIN_FULL_NAME: مدیر CI
+          ADMIN_ROLE: SUPER_ADMIN
+      - name: Start the stack
+        run: |
+          mkdir -p logs
+          (cd apps/api && nohup node dist/main.js > ../../logs/api.log 2>&1 &)
+          (cd apps/worker && nohup node dist/main.js > ../../logs/worker.log 2>&1 &)
+          (cd apps/scheduler && nohup node dist/main.js > ../../logs/scheduler.log 2>&1 &)
+          (cd apps/web && NODE_ENV=production nohup npx next start -p 3000 > ../../logs/web.log 2>&1 &)
+          nohup node tests/fake-bale/server.mjs > logs/fake-bale.log 2>&1 &
+          for i in $(seq 60); do curl -fsS http://localhost:3000/api/v1/health/ready && break; sleep 2; done
+      - run: npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: |
+            test-results/
+            logs/
+          retention-days: 7
+
+  docker:
+    name: Docker images and vulnerability scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose file
+        run: cp .env.example .env && docker compose config --quiet && rm .env
+      - name: Build images
+        run: |
+          for t in migrator api worker scheduler web; do
+            docker build -f infra/docker/Dockerfile --target $t -t bale-campaign/$t:ci .
+          done
+      - name: Scan images (fail on fixable HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: bale-campaign/api:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Scan web image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: bale-campaign/web:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Check no .env file is baked into an image
+        run: |
+          for t in api worker scheduler web; do
+            if docker run --rm --entrypoint sh bale-campaign/$t:ci -c 'find / -xdev -name ".env" 2>/dev/null | grep -q .'; then
+              echo "::error::.env found in $t image"; exit 1
+            fi
+          done
