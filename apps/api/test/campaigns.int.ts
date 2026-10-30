@@ -77,7 +77,9 @@ describe("campaigns: lifecycle, dispatch, retry and recovery", () => {
     expect(by(null)).toMatchObject({ status: "FAILED", lastErrorCode: "NO_CHAT_ID" });
     expect(enqueued.some((e) => e.campaignId === campaign.id)).toBe(true);
 
-    await new Promise((r) => setTimeout(r, 1600));
+    // Wait until the retry is due by the stored time (the dispatcher compares it with the database clock).
+    const due = by("5992").nextAttemptAt.getTime();
+    await new Promise((r) => setTimeout(r, Math.max(0, due - Date.now()) + 300));
     const second = await dispatchCampaign(deps, campaign.id);
     expect(second.outcome).toBe("completed");
     rows = await recipients(campaign.id);
