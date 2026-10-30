@@ -60,6 +60,10 @@ PostgreSQL 17، Prisma 7 (با driver adapter `@prisma/adapter-pg`). اسکیم�
 | `user_recovery_codes` | هش کدهای بازیابی ۲FA و زمان مصرف |
 | `users.totp_secret_encrypted`، `users.totp_enabled_at` | راز TOTP رمزنگاری‌شده با کلید بیرون از پایگاه داده |
 
+## RLS (فاز I)
+
+migration `20261030090000_row_level_security` نقش `bcp_app` (NOLOGIN، بدون BYPASSRLS) را می‌سازد، به کاربر اتصال اجازه `SET ROLE` به آن را می‌دهد و روی جدول‌های سازمانی سیاست `tenant_isolation` می‌گذارد. وقتی `app.org_id` تنظیم نشده باشد (migration، worker، scheduler، مدیریت سامانه) سیاست مانعی ندارد.
+
 ## Migrationها
 
 | Migration | محتوا |

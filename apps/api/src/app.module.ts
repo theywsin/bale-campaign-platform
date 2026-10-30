@@ -1,5 +1,6 @@
 import { DynamicModule, Module } from "@nestjs/common";
-import { APP_FILTER, APP_GUARD } from "@nestjs/core";
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
+import { TenantContextInterceptor } from "./prisma/tenant-context.interceptor";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { ThrottlerStorageRedisService } from "@nest-lab/throttler-storage-redis";
 import { LoggerModule } from "nestjs-pino";
@@ -100,6 +101,7 @@ export class AppModule {
         { provide: APP_GUARD, useClass: CsrfGuard },
         { provide: APP_GUARD, useClass: PlatformPermissionGuard },
         { provide: APP_GUARD, useClass: OrgPermissionGuard },
+        { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
       ],
     };
   }
